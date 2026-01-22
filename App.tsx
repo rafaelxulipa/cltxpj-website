@@ -163,7 +163,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <AdUnit slot="sidebar-slot" format="rectangle" />
+          <AdUnit slot="9217882912" format="rectangle" />
         </div>
 
         {/* Results Display */}
@@ -184,7 +184,7 @@ const App: React.FC = () => {
           </div>
 
           <AdUnit
-            slot="results-inline-slot"
+            slot="6312517973"
             format="auto"
             className="max-w-3xl mx-auto"
           />
@@ -211,7 +211,7 @@ const App: React.FC = () => {
           </div>
 
           <AdUnit
-            slot="mid-content-slot"
+            slot="6312517973"
             format="auto"
             className="max-w-4xl mx-auto"
           />
@@ -301,7 +301,7 @@ const App: React.FC = () => {
           </div>
 
           <AdUnit
-            slot="table-bottom-slot"
+            slot="6312517973"
             format="auto"
             className="max-w-5xl mx-auto"
           />
@@ -409,7 +409,7 @@ const App: React.FC = () => {
       </main>
 
       <AdUnit
-        slot="pre-footer-slot"
+        slot="1774507160"
         format="auto"
         className="max-w-6xl mx-auto"
       />
