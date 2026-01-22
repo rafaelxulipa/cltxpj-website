@@ -11,27 +11,12 @@ const AdUnit: React.FC<AdUnitProps> = ({
   format = "auto",
   className = "",
 }) => {
-  const adRef = useRef<HTMLDivElement>(null);
-  const [hasAd, setHasAd] = useState(false);
 
   useEffect(() => {
-    if (!adRef.current) return;
-
     try {
-      if (adRef.current.childNodes.length === 0) {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      }
-
-      // Pequeno delay para verificar se o anúncio foi injetado
-      const checkAd = setTimeout(() => {
-        if (adRef.current?.querySelector("iframe")) {
-          setHasAd(true);
-        }
-      }, 800);
-
-      return () => clearTimeout(checkAd);
-    } catch (err) {
-      console.error("Erro ao carregar AdSense:", err);
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (e) {
+      console.error('AdSense script error:', e);
     }
   }, []);
 
@@ -43,7 +28,7 @@ const AdUnit: React.FC<AdUnitProps> = ({
         Publicidade
       </span>
 
-      <div ref={adRef} className="w-full">
+      <div className="w-full">
         <ins
           className="adsbygoogle"
           style={{ display: "block" }}
@@ -53,13 +38,6 @@ const AdUnit: React.FC<AdUnitProps> = ({
           data-full-width-responsive="true"
         />
       </div>
-
-      {/* Fallback quando não houver anúncio */}
-      {!hasAd && (
-        <div className="text-slate-500 text-sm italic mt-2">
-          Bloco de Anúncio ({format})
-        </div>
-      )}
     </div>
   );
 };

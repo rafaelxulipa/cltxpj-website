@@ -299,13 +299,6 @@ const App: React.FC = () => {
               </table>
             </div>
           </div>
-
-          <AdUnit
-            slot="6312517973"
-            format="auto"
-            className="max-w-5xl mx-auto"
-          />
-
         </div>
       </div>
 
