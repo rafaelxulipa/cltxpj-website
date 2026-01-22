@@ -163,7 +163,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <AdUnit slot="9217882912" format="rectangle" />
+          <AdUnit slot="9217882912" />
         </div>
 
         {/* Results Display */}
