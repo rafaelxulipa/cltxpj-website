@@ -402,7 +402,7 @@ const App: React.FC = () => {
       </main>
 
       <AdUnit
-        slot="1774507160"
+        slot="6312517973"
         format="auto"
         className="max-w-6xl mx-auto"
       />
