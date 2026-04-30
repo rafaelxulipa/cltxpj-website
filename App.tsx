@@ -1,576 +1,881 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  Calculator,
-  TrendingUp,
-  Briefcase,
-  FileText,
-  PieChart as PieChartIcon,
-  ShieldCheck,
-  Building2,
-  ArrowLeft,
-  ExternalLink,
-  Scale,
-  Info,
-} from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Calculator, ArrowLeft, ExternalLink, TrendingUp, Shield, Lock, Sun, Moon, FileDown } from 'lucide-react';
 import { CltInputs, PjInputs } from './types';
 import { calculateFullComparison } from './services/calculator';
 import AdUnit from './components/AdUnit';
-import ResultCard from './components/ResultCard';
-import CurrencyInput from './components/CurrencyInput';
 
-type View = 'calculator' | 'terms' | 'privacy';
+type View  = 'calculator' | 'terms' | 'privacy';
+type Theme = 'dark' | 'light';
 
-const fmt = (val: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+// ── Formatters ────────────────────────────────────────────────────────────────
+const fmt = (v: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const fmtShort = (v: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
-const pct = (val: number) => `${(val * 100).toFixed(1)}%`;
+// ── Flash hook ────────────────────────────────────────────────────────────────
+function useFlash(value: number) {
+  const [key, setKey] = useState(0);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (Math.abs(prev.current - value) > 0.005) {
+      setKey(k => k + 1);
+      prev.current = value;
+    }
+  }, [value]);
+  return key;
+}
 
-// ── Tooltip de ajuda ──────────────────────────────────────────────────────────
-const Tip: React.FC<{ text: string }> = ({ text }) => (
-  <div className="group relative inline-flex ml-1.5">
-    <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
-    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-xl bg-slate-800 px-3 py-2 text-[11px] font-medium text-white shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 leading-relaxed">
-      {text}
-    </div>
-  </div>
+// ── Theme-aware accent colors ─────────────────────────────────────────────────
+function useAccents(theme: Theme) {
+  const isDark = theme === 'dark';
+  return {
+    pj:    isDark ? '#B2FF5C' : '#16A34A',
+    clt:   isDark ? '#5CA0FF' : '#1D60C8',
+    neg:   isDark ? '#FF5D6C' : '#DC2626',
+    isDark,
+  };
+}
+
+// ── CSS var helper ────────────────────────────────────────────────────────────
+const v = (name: string) => `var(--${name})`;
+
+// ── Divider ───────────────────────────────────────────────────────────────────
+const Divider = () => (
+  <div className="my-7 h-px w-full" style={{ background: v('border') }} />
 );
 
-// ── Linha de detalhe ──────────────────────────────────────────────────────────
-const DetailRow: React.FC<{
+// ── Tag/badge ─────────────────────────────────────────────────────────────────
+const Tag: React.FC<{ color: string; dimBg: string; children: React.ReactNode }> = ({ color, dimBg, children }) => (
+  <span
+    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md"
+    style={{
+      color,
+      background: dimBg,
+      fontFamily: 'Roboto, sans-serif',
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '0.15em',
+      textTransform: 'uppercase',
+    }}
+  >
+    {children}
+  </span>
+);
+
+// ── Currency input ────────────────────────────────────────────────────────────
+const MoneyField: React.FC<{
   label: string;
-  tip?: string;
-  clt: string;
-  pj: string;
-  bold?: boolean;
-  negative?: boolean;
-}> = ({ label, tip, clt, pj, bold, negative }) => (
-  <tr className="border-b border-slate-50/60 hover:bg-slate-50/70 transition-colors">
-    <td className={`px-6 py-4 ${bold ? 'font-black text-slate-800 text-base' : 'text-slate-500 font-medium text-sm'}`}>
-      <span className="flex items-center gap-1">
-        {label}
-        {tip && <Tip text={tip} />}
-      </span>
-    </td>
-    <td className={`px-6 py-4 font-bold text-sm ${negative ? 'text-rose-500' : bold ? 'text-blue-600 text-lg' : 'text-slate-700'}`}>{clt}</td>
-    <td className={`px-6 py-4 font-bold text-sm ${negative ? 'text-rose-500' : bold ? 'text-emerald-600 text-lg' : 'text-slate-700'}`}>{pj}</td>
-  </tr>
-);
-
-// ── Input numérico (percentual) ───────────────────────────────────────────────
-const PercentInput: React.FC<{
-  value: number; // 0–100
+  value: number;
   onChange: (v: number) => void;
-  step?: number;
-  className?: string;
-}> = ({ value, onChange, step = 0.1, className = '' }) => {
-  const [raw, setRaw] = useState('');
+  isClt?: boolean;
+}> = ({ label, value, onChange, isClt }) => {
   const [focused, setFocused] = useState(false);
+  const [raw, setRaw] = useState('');
 
-  const display = focused ? raw : value.toFixed(1);
+  const display = focused
+    ? raw === '' ? '' : (parseInt(raw, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+    : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={display}
-      onFocus={() => { setFocused(true); setRaw(value.toFixed(1)); }}
-      onBlur={() => {
-        setFocused(false);
-        const v = parseFloat(raw.replace(',', '.'));
-        if (!isNaN(v)) onChange(Math.max(0, Math.min(100, v)));
-      }}
-      onChange={(e) => {
-        const s = e.target.value.replace(/[^0-9.,]/g, '');
-        setRaw(s);
-        const v = parseFloat(s.replace(',', '.'));
-        if (!isNaN(v)) onChange(Math.max(0, Math.min(100, v)));
-      }}
-      className={className}
-    />
+    <div>
+      <label className="field-label">{label}</label>
+      <div className="flex items-baseline gap-2">
+        <span style={{ color: v('t3'), fontFamily: "'Roboto Mono', monospace", fontSize: 12, fontWeight: 700, paddingBottom: 8 }}>
+          R$
+        </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={display}
+          onFocus={() => { setFocused(true); setRaw(value === 0 ? '' : String(Math.round(value * 100))); }}
+          onBlur={() => { setFocused(false); onChange(parseInt(raw || '0', 10) / 100); }}
+          onChange={e => {
+            const d = e.target.value.replace(/\D/g, '');
+            setRaw(d);
+            onChange(parseInt(d || '0', 10) / 100);
+          }}
+          className={`field-input flex-1 ${isClt ? 'clt-focus' : ''}`}
+        />
+      </div>
+    </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Percent input ─────────────────────────────────────────────────────────────
+const PctField: React.FC<{
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  hint?: string;
+  isClt?: boolean;
+}> = ({ label, value, onChange, hint, isClt }) => {
+  const [raw, setRaw] = useState(value.toFixed(1));
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={focused ? raw : value.toFixed(1)}
+          onFocus={() => { setFocused(true); setRaw(value.toFixed(1)); }}
+          onBlur={() => {
+            setFocused(false);
+            const n = parseFloat(raw.replace(',', '.'));
+            if (!isNaN(n)) onChange(Math.max(0, Math.min(100, n)));
+          }}
+          onChange={e => {
+            const s = e.target.value.replace(/[^0-9.,]/g, '');
+            setRaw(s);
+            const n = parseFloat(s.replace(',', '.'));
+            if (!isNaN(n)) onChange(Math.max(0, Math.min(100, n)));
+          }}
+          className={`field-input pr-6 ${isClt ? 'clt-focus' : ''}`}
+        />
+        <span
+          className="absolute right-0 bottom-2"
+          style={{ color: v('t3'), fontFamily: "'Roboto Mono', monospace", fontSize: 14 }}
+        >
+          %
+        </span>
+      </div>
+      {hint && (
+        <p className="mt-1.5 text-[10px] leading-relaxed" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+};
 
-const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>('calculator');
+// ── Pro-labore slider ─────────────────────────────────────────────────────────
+const ProLaboreSlider: React.FC<{
+  rate: number;
+  onChange: (v: number) => void;
+  billing: number;
+  pjColor: string;
+}> = ({ rate, onChange, billing, pjColor }) => {
+  const computed = Math.max(billing * rate, 1621);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <label className="field-label" style={{ marginBottom: 0 }}>Pró-labore (Fator R)</label>
+        <span style={{ color: pjColor, fontFamily: "'Roboto Mono', monospace", fontSize: 12, fontWeight: 700 }}>
+          {(rate * 100).toFixed(0)}% → {fmt(computed)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min="1" max="100"
+        value={rate * 100}
+        onChange={e => onChange(Number(e.target.value) / 100)}
+        className="custom-range mt-3"
+      />
+      <div className="flex justify-between mt-1.5 text-[10px]" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+        <span>Mín. 28% (Simples III)</span>
+        <span>Mín. absoluto: R$1.621</span>
+      </div>
+    </div>
+  );
+};
 
-  const [clt, setClt] = useState<CltInputs>({
-    grossSalary: 8500,
-    employerChargesRate: 0.338,
-  });
+// ── Table row ─────────────────────────────────────────────────────────────────
+const TRow: React.FC<{
+  label: string;
+  clt: string | null;
+  pj: string | null;
+  negative?: boolean;
+  totals?: boolean;
+  cltColor: string;
+  pjColor: string;
+  negColor: string;
+}> = ({ label, clt, pj, negative, totals, cltColor, pjColor, negColor }) => (
+  <tr style={{ background: totals ? v('surface2') : undefined, borderBottomColor: v('border') }}>
+    <td
+      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-left text-[12px] border-b`}
+      style={{
+        color: totals ? v('t1') : v('t2'),
+        fontFamily: 'Roboto, sans-serif',
+        fontWeight: totals ? 700 : 400,
+        borderBottomColor: v('border'),
+        letterSpacing: totals ? '0.06em' : undefined,
+        textTransform: totals ? 'uppercase' : undefined,
+        fontSize: totals ? 11 : undefined,
+      }}
+    >
+      {label}
+    </td>
+    <td
+      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-right text-[12px] border-b`}
+      style={{
+        fontFamily: "'Roboto Mono', monospace",
+        fontWeight: totals ? 700 : 500,
+        fontSize: totals ? 15 : 12,
+        color: negative ? negColor : totals ? cltColor : v('t1'),
+        borderBottomColor: v('border'),
+      }}
+    >
+      {clt ?? <span style={{ color: v('t3') }}>—</span>}
+    </td>
+    <td
+      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-right text-[12px] border-b`}
+      style={{
+        fontFamily: "'Roboto Mono', monospace",
+        fontWeight: totals ? 700 : 500,
+        fontSize: totals ? 15 : 12,
+        color: negative ? negColor : totals ? pjColor : v('t1'),
+        borderBottomColor: v('border'),
+      }}
+    >
+      {pj ?? <span style={{ color: v('t3') }}>—</span>}
+    </td>
+  </tr>
+);
 
-  const [pj, setPj] = useState<PjInputs>({
-    billingMonthly: 12500,
-    proLaboreRate: 0.28,
-    costsRate: 0.05,
-  });
+// ── LinkedIn SVG icon ─────────────────────────────────────────────────────────
+const LinkedInIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+  </svg>
+);
 
-  const currentYear = new Date().getFullYear();
+// ── PDF: gera HTML completo em nova janela e imprime ─────────────────────────
+function buildPdfHtml(
+  r: ReturnType<typeof calculateFullComparison>,
+  clt: CltInputs,
+  pj: PjInputs,
+  year: number,
+): string {
+  const pjWins    = r.difference.annual >= 0;
+  const winner    = pjWins ? 'PJ' : 'CLT';
+  const accent    = pjWins ? '#16A34A' : '#1D60C8';
+  const accentBg  = pjWins ? '#f0fdf4' : '#eff6ff';
+  const proLabore = fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621));
+  const today     = new Date().toLocaleDateString('pt-BR');
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentView]);
+  const card = (content: string) =>
+    `<div style="border:1px solid #e0e0ec;border-radius:8px;padding:14px;">${content}</div>`;
 
-  const results = useMemo(() => calculateFullComparison(clt, pj), [clt, pj]);
+  const label = (text: string, color = '#888') =>
+    `<p style="font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${color};margin-bottom:7px;font-family:Roboto,sans-serif;">${text}</p>`;
 
-  const chartData = [
-    { name: 'Líquido Mensal', CLT: results.clt.netMonthly, PJ: results.pj.netMonthly },
-    { name: 'Custo Total', CLT: results.clt.employerCost, PJ: results.pj.billingMonthly },
+  const kv = (k: string, val: string, valColor = '#111') =>
+    `<div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+       <span style="color:#555;font-size:10pt;">${k}</span>
+       <span style="font-family:'Roboto Mono',monospace;font-weight:700;color:${valColor};">${val}</span>
+     </div>`;
+
+  const rows = [
+    { desc: 'Salário Bruto / Faturamento', cVal: fmt(r.clt.grossMonthly),  pVal: fmt(r.pj.billingMonthly),  neg: false },
+    { desc: 'INSS',                         cVal: fmt(r.clt.inss),           pVal: fmt(r.pj.inssPatronal),    neg: true  },
+    { desc: 'IRRF',                         cVal: fmt(r.clt.irrf),           pVal: fmt(r.pj.irrf),            neg: true  },
+    { desc: 'DAS — Simples Nacional III',   cVal: '—',                       pVal: fmt(r.pj.simplesNacional), neg: true  },
+    { desc: 'Custos Operacionais',          cVal: '—',                       pVal: fmt(r.pj.costs),           neg: true  },
   ];
 
-  const inputBase =
-    'w-full bg-slate-50/60 border border-slate-200 rounded-xl outline-none transition-all font-semibold text-slate-800 focus:ring-4 focus:border-blue-500 focus:ring-blue-500/10';
-  const inputLg = `${inputBase} pl-12 pr-4 py-3.5 text-lg font-bold`;
-  const inputSm = `${inputBase} px-4 py-3 text-sm`;
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório CLT vs PJ — ${today}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Roboto', sans-serif;
+      color: #111;
+      background: #fff;
+      font-size: 10pt;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .mono { font-family: 'Roboto Mono', monospace; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left; font-size: 8pt; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      border-bottom: 1.5px solid #e0e0ec; padding: 6px 8px;
+      color: #888; font-family: Roboto, sans-serif;
+    }
+    td { padding: 7px 8px; font-size: 10pt; border-bottom: 1px solid #f0f0f8; }
+    .tr { text-align: right; }
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  </style>
+</head>
+<body>
 
-  const renderCalculator = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;border-bottom:2px solid #111;padding-bottom:12px;">
+    <div>
+      <div style="font-size:22pt;font-weight:900;letter-spacing:-.02em;">
+        CLT <span style="color:${accent};">vs</span> PJ
+      </div>
+      <div style="font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-top:3px;">
+        Relatório Comparativo de Regime de Contratação
+      </div>
+    </div>
+    <div style="text-align:right;font-size:9pt;color:#888;line-height:1.7;">
+      <div>Gerado em ${today}</div>
+      <div>Tabelas ${year} · INSS, IRRF, Simples Nacional III</div>
+    </div>
+  </div>
 
-        {/* ── Inputs ───────────────────────────────────────────────────── */}
-        <div className="lg:col-span-4 space-y-6">
+  <!-- Parameters -->
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:9px;">Parâmetros Simulados</div>
+  <div class="g2" style="margin-bottom:18px;">
+    ${card(label('● CLT', '#1D60C8') + kv('Salário Bruto', fmt(clt.grossSalary), '#1D60C8') + kv('Encargos Patronais', `${(clt.employerChargesRate * 100).toFixed(1)}%`))}
+    ${card(label('● PJ — Simples Nacional III', '#16A34A') + kv('Faturamento Mensal', fmt(pj.billingMonthly), '#16A34A') + kv('Pró-labore (Fator R)', `${(pj.proLaboreRate * 100).toFixed(0)}% = ${proLabore}`) + kv('Custos Operacionais', `${(pj.costsRate * 100).toFixed(1)}%`))}
+  </div>
 
-          {/* CLT */}
-          <div className="bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white shadow-xl shadow-slate-200/50 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500 rounded-r-3xl" />
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-blue-50 p-2 rounded-xl">
-                <Briefcase className="w-5 h-5 text-blue-600" />
-              </div>
-              <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Parâmetros CLT</h2>
-            </div>
+  <!-- Verdict -->
+  <div style="border:1.5px solid ${accent};border-radius:10px;padding:16px 20px;margin-bottom:18px;background:${accentBg};">
+    ${label(`● ${winner} Vence — Vantagem Anual`, accent)}
+    <div class="mono" style="font-size:30pt;font-weight:900;color:${accent};line-height:1;margin-bottom:6px;">${fmtShort(Math.abs(r.difference.annual))}</div>
+    <div style="display:flex;gap:24px;font-size:10pt;color:#555;">
+      <span><strong class="mono" style="color:${accent};">${fmt(Math.abs(r.difference.monthly))}</strong> por mês</span>
+      <span><strong class="mono" style="color:${accent};">${Math.abs(r.difference.percent).toFixed(1)}%</strong> de ganho a mais</span>
+    </div>
+  </div>
 
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-tight">
-                  Salário Bruto
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm select-none">R$</span>
-                  <CurrencyInput
-                    value={clt.grossSalary}
-                    onChange={(v) => setClt({ ...clt, grossSalary: v })}
-                    className={inputLg}
-                  />
-                </div>
-              </div>
+  <!-- Net liquid -->
+  <div class="g2" style="margin-bottom:18px;">
+    ${card(label('CLT — Líquido Mensal', '#1D60C8') + `<div class="mono" style="font-size:18pt;font-weight:900;color:#1D60C8;line-height:1.1;">${fmt(r.clt.netMonthly)}</div><div style="font-size:9pt;color:#888;margin-top:4px;">${fmtShort(r.clt.totalAnnualNet)}/ano</div>`)}
+    ${card(label('PJ — Líquido Mensal', '#16A34A') + `<div class="mono" style="font-size:18pt;font-weight:900;color:#16A34A;line-height:1.1;">${fmt(r.pj.netMonthly)}</div><div style="font-size:9pt;color:#888;margin-top:4px;">${fmtShort(r.pj.totalAnnualNet)}/ano</div>`)}
+  </div>
 
-              <div>
-                <label className="flex items-center text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-tight">
-                  Encargos Patronais
-                  <Tip text="Total de encargos que o empregador paga além do salário: INSS Patronal (20%), FGTS (8%), 13º, Férias, PIS, etc. Padrão: 33,8%." />
-                </label>
-                <div className="relative">
-                  <PercentInput
-                    value={clt.employerChargesRate * 100}
-                    onChange={(v) => setClt({ ...clt, employerChargesRate: v / 100 })}
-                    className={`${inputSm} pr-8`}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm select-none">%</span>
-                </div>
-              </div>
-            </div>
-          </div>
+  <!-- Detail table -->
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Demonstrativo Fiscal Detalhado — ${year}</div>
+  <table style="margin-bottom:18px;">
+    <thead>
+      <tr>
+        <th style="width:48%;">Discriminação</th>
+        <th class="tr" style="color:#1D60C8;">CLT</th>
+        <th class="tr" style="color:#16A34A;">PJ — Simples III</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(row => `
+      <tr>
+        <td style="color:#444;">${row.desc}</td>
+        <td class="tr mono" style="font-weight:500;color:${row.neg ? '#DC2626' : '#111'};">${row.cVal}</td>
+        <td class="tr mono" style="font-weight:500;color:${row.neg ? '#DC2626' : '#111'};">${row.pVal}</td>
+      </tr>`).join('')}
+      <tr style="background:#f7f8fc;">
+        <td style="font-weight:700;font-size:11pt;text-transform:uppercase;letter-spacing:.05em;border-bottom:none;">Disponível Líquido</td>
+        <td class="tr mono" style="font-weight:900;font-size:13pt;color:#1D60C8;border-bottom:none;">${fmt(r.clt.netMonthly)}</td>
+        <td class="tr mono" style="font-weight:900;font-size:13pt;color:#16A34A;border-bottom:none;">${fmt(r.pj.netMonthly)}</td>
+      </tr>
+    </tbody>
+  </table>
 
-          {/* PJ */}
-          <div className="bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white shadow-xl shadow-slate-200/50 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500 rounded-r-3xl" />
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-emerald-50 p-2 rounded-xl">
-                <Building2 className="w-5 h-5 text-emerald-600" />
-              </div>
-              <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Parâmetros PJ</h2>
-            </div>
+  <!-- Employer cost -->
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Custo Total Para a Empresa</div>
+  <div class="g2" style="margin-bottom:24px;">
+    ${card(label('CLT', '#1D60C8') + `<div class="mono" style="font-size:16pt;font-weight:900;color:#1D60C8;">${fmt(r.clt.employerCost)}</div><div style="font-size:9pt;color:#888;margin-top:3px;">+${(clt.employerChargesRate * 100).toFixed(1)}% em encargos patronais</div>`)}
+    ${card(label('PJ', '#16A34A') + `<div class="mono" style="font-size:16pt;font-weight:900;color:#16A34A;">${fmt(r.pj.billingMonthly)}</div><div style="font-size:9pt;color:#888;margin-top:3px;">Faturamento bruto contratado</div>`)}
+  </div>
 
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-tight">
-                  Faturamento Mensal
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm select-none">R$</span>
-                  <CurrencyInput
-                    value={pj.billingMonthly}
-                    onChange={(v) => setPj({ ...pj, billingMonthly: v })}
-                    className={`${inputLg} focus:border-emerald-500 focus:ring-emerald-500/10`}
-                  />
-                </div>
-              </div>
+  <!-- Footer -->
+  <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;">
+    <span style="font-size:8pt;color:#aaa;">Estimativa com base nas tabelas ${year}. Não substitui orientação contábil profissional.</span>
+    <span style="font-size:8pt;color:#aaa;">calculadoracltxpj.com.br</span>
+  </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="flex items-center text-xs font-bold text-slate-500 uppercase tracking-tight">
-                    Pró-labore (Fator R)
-                    <Tip text="% do faturamento declarado como pró-labore. Mínimo de 28% (Fator R) para Simples Nacional Anexo III. Mínimo absoluto: 1 salário mínimo (R$ 1.621)." />
-                  </label>
-                  <span className="text-sm font-black text-emerald-600">{pct(pj.proLaboreRate)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1" max="100"
-                  value={pj.proLaboreRate * 100}
-                  onChange={(e) => setPj({ ...pj, proLaboreRate: Number(e.target.value) / 100 })}
-                  className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500 mb-1"
-                />
-                <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-                  <span>Mín. 28%</span>
-                  <span>{fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621))}</span>
-                </div>
-              </div>
+</body>
+</html>`;
+}
 
-              <div>
-                <label className="flex items-center text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-tight">
-                  Custos Fixos
-                  <Tip text="Custos operacionais mensais como porcentagem do faturamento: contador, software, aluguel, etc." />
-                </label>
-                <div className="relative">
-                  <PercentInput
-                    value={pj.costsRate * 100}
-                    onChange={(v) => setPj({ ...pj, costsRate: v / 100 })}
-                    className={`${inputSm} pr-8 focus:border-emerald-500 focus:ring-emerald-500/10`}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm select-none">%</span>
-                </div>
-              </div>
-            </div>
-          </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// Main App
+// ─────────────────────────────────────────────────────────────────────────────
+const App: React.FC = () => {
+  const [view,  setView]  = useState<View>('calculator');
+  const [theme, setTheme] = useState<Theme>(() =>
+    (localStorage.getItem('theme') as Theme) || 'dark'
+  );
 
-          <AdUnit slot="9217882912" />
+  const [clt, setClt] = useState<CltInputs>({ grossSalary: 8500, employerChargesRate: 0.338 });
+  const [pj,  setPj]  = useState<PjInputs>({ billingMonthly: 12500, proLaboreRate: 0.28, costsRate: 0.05 });
+
+  const year = new Date().getFullYear();
+  const { pj: pjColor, clt: cltColor, neg: negColor, isDark } = useAccents(theme);
+
+  // Apply theme to <html>
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [view]);
+
+  const r = useMemo(() => calculateFullComparison(clt, pj), [clt, pj]);
+
+  const pjWins   = r.difference.annual >= 0;
+  const accent   = pjWins ? pjColor  : cltColor;
+  const accentDim = pjWins
+    ? isDark ? 'rgba(178,255,92,0.1)' : 'rgba(22,163,74,0.08)'
+    : isDark ? 'rgba(92,160,255,0.1)' : 'rgba(29,96,200,0.08)';
+  const winnerLabel = pjWins ? 'PJ' : 'CLT';
+
+  const verdictKey = useFlash(r.difference.annual);
+  const cltKey     = useFlash(r.clt.netMonthly);
+  const pjKey      = useFlash(r.pj.netMonthly);
+
+  const handlePrint = () => {
+    const html = buildPdfHtml(r, clt, pj, year);
+    const win  = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // Wait for fonts to load before printing
+    win.onload = () => { win.focus(); win.print(); };
+  };
+
+  // ── Calculator ──────────────────────────────────────────────────────────────
+  const calculator = (
+    <div className="page-in grid grid-cols-1 lg:grid-cols-[400px_1fr]">
+
+      {/* ─── Inputs (sticky left) ────────────────────────────────────────── */}
+      <div
+        className="lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto px-7 py-8 border-r"
+        style={{ borderColor: v('border') }}
+      >
+        {/* CLT */}
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full" style={{ background: cltColor }} />
+          <span
+            className="text-[10px] font-bold tracking-[0.2em] uppercase"
+            style={{ color: cltColor, fontFamily: 'Roboto, sans-serif' }}
+          >
+            Regime CLT
+          </span>
         </div>
 
-        {/* ── Resultados ───────────────────────────────────────────────── */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="space-y-6">
+          <MoneyField label="Salário Bruto Mensal" value={clt.grossSalary} onChange={g => setClt({ ...clt, grossSalary: g })} isClt />
+          <PctField
+            label="Encargos Patronais"
+            value={clt.employerChargesRate * 100}
+            onChange={n => setClt({ ...clt, employerChargesRate: n / 100 })}
+            hint="INSS (20%) + FGTS (8%) + 13º + Férias + PIS/PASEP. Padrão: 33,8%"
+            isClt
+          />
+        </div>
 
-          {/* Cards de resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ResultCard
-              label="Líquido Mensal CLT"
-              value={results.clt.netMonthly}
-              subValue={`Anual: ${fmt(results.clt.totalAnnualNet)}`}
-              icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
-            />
-            <ResultCard
-              label="Líquido Mensal PJ"
-              value={results.pj.netMonthly}
-              subValue={`Anual: ${fmt(results.pj.totalAnnualNet)}`}
-              icon={<TrendingUp className="w-5 h-5 text-emerald-500" />}
-            />
-          </div>
+        <Divider />
 
-          <AdUnit slot="6312517973" format="auto" className="max-w-3xl mx-auto" />
+        {/* PJ */}
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full" style={{ background: pjColor }} />
+          <span
+            className="text-[10px] font-bold tracking-[0.2em] uppercase"
+            style={{ color: pjColor, fontFamily: 'Roboto, sans-serif' }}
+          >
+            Regime PJ — Simples Nacional III
+          </span>
+        </div>
 
-          {/* Banner diferença */}
-          <div className={`group relative p-10 rounded-[2.5rem] shadow-2xl overflow-hidden transition-all duration-700 ${results.difference.annual >= 0 ? 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700' : 'bg-gradient-to-br from-rose-500 via-rose-600 to-pink-700'} text-white`}>
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000" />
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-black/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000" />
-            <div className="relative z-10 text-center">
-              <h3 className="text-sm font-bold uppercase tracking-[0.2em] opacity-80 mb-4">Diferença de Ganho Anual</h3>
-              <div className="text-5xl md:text-6xl font-black mb-5 tracking-tighter drop-shadow-lg">
-                {fmt(Math.abs(results.difference.annual))}
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <span className="px-5 py-2 rounded-full bg-white/15 backdrop-blur-md border border-white/20 font-black text-sm uppercase tracking-wider">
-                  {Math.abs(results.difference.percent).toFixed(1)}% de vantagem {results.difference.annual >= 0 ? 'PJ' : 'CLT'}
-                </span>
-                <span className="px-5 py-2 rounded-full bg-black/15 backdrop-blur-md border border-white/10 font-black text-sm uppercase tracking-wider">
-                  {fmt(Math.abs(results.difference.monthly))}/mês
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-6">
+          <MoneyField label="Faturamento Mensal" value={pj.billingMonthly} onChange={b => setPj({ ...pj, billingMonthly: b })} />
+          <ProLaboreSlider rate={pj.proLaboreRate} onChange={r => setPj({ ...pj, proLaboreRate: r })} billing={pj.billingMonthly} pjColor={pjColor} />
+          <PctField
+            label="Custos Operacionais"
+            value={pj.costsRate * 100}
+            onChange={n => setPj({ ...pj, costsRate: n / 100 })}
+            hint="Contador, softwares, infraestrutura (% sobre faturamento)"
+          />
+        </div>
 
-          <AdUnit slot="6312517973" format="auto" className="max-w-4xl mx-auto" />
+        <div className="mt-8"><AdUnit slot="9217882912" /></div>
+      </div>
 
-          {/* Gráfico */}
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="bg-indigo-50 p-2 rounded-xl">
-                  <PieChartIcon className="w-5 h-5 text-indigo-500" />
-                </div>
-                <h3 className="font-black text-slate-800 tracking-tight text-lg">Projeção de Rendimentos</h3>
-              </div>
-              <div className="hidden sm:flex gap-5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 bg-blue-500 rounded-full" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CLT</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 bg-emerald-500 rounded-full" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PJ</span>
-                </div>
-              </div>
-            </div>
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="cltGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" />
-                      <stop offset="100%" stopColor="#2563eb" />
-                    </linearGradient>
-                    <linearGradient id="pjGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" />
-                      <stop offset="100%" stopColor="#059669" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} dy={16} />
-                  <YAxis hide />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    formatter={(v: number) => fmt(v)}
-                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 40px -8px rgb(0 0 0 / 0.12)', padding: '16px 20px', fontWeight: 'bold' }}
-                  />
-                  <Bar dataKey="CLT" fill="url(#cltGradient)" radius={[10, 10, 10, 10]} barSize={52} />
-                  <Bar dataKey="PJ" fill="url(#pjGradient)" radius={[10, 10, 10, 10]} barSize={52} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+      {/* ─── Results (right) ─────────────────────────────────────────────── */}
+      <div className="px-6 lg:px-10 py-8 space-y-5">
 
-          {/* Fluxo detalhado */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-50 bg-slate-50/40 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-slate-200 p-2 rounded-xl">
-                  <FileText className="w-5 h-5 text-slate-500" />
-                </div>
-                <h3 className="font-black text-slate-800 text-lg">Fluxo Detalhado</h3>
-              </div>
-              <span className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest shadow-sm">
-                Demonstrativo Fiscal {currentYear}
+        {/* VERDICT */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: `1px solid ${accent}30`, background: v('surface') }}
+        >
+          <div
+            className="verdict-gradient-line"
+            style={{
+              height: 2,
+              background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+            }}
+          />
+          <div className="px-7 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <Tag color={accent} dimBg={accentDim}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: accent }} />
+                {winnerLabel} vence
+              </Tag>
+              <span className="text-[11px]" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+                vantagem anual
               </span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100">
-                    <th className="px-6 py-4">Discriminação</th>
-                    <th className="px-6 py-4">CLT</th>
-                    <th className="px-6 py-4">PJ — Simples III</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <DetailRow
-                    label="Rendimento / Faturamento Bruto"
-                    clt={fmt(results.clt.grossMonthly)}
-                    pj={fmt(results.pj.billingMonthly)}
-                    bold
-                  />
-                  <DetailRow
-                    label="INSS"
-                    tip="CLT: descontado do salário. PJ: INSS Patronal Simples (11% sobre pró-labore, teto R$932,31)."
-                    clt={fmt(results.clt.inss)}
-                    pj={fmt(results.pj.inssPatronal)}
-                    negative
-                  />
-                  <DetailRow
-                    label="IRRF"
-                    tip="Imposto de renda retido na fonte. Com isenção progressiva 2026: rendimentos até R$5.000 isentos."
-                    clt={fmt(results.clt.irrf)}
-                    pj={fmt(results.pj.irrf)}
-                    negative
-                  />
-                  <DetailRow
-                    label="DAS — Simples Nacional Anexo III"
-                    tip="Guia unificada do Simples (inclui ISS, PIS, COFINS, CSLL, IRPJ). Calculada sobre o faturamento mensal."
-                    clt="—"
-                    pj={fmt(results.pj.simplesNacional)}
-                    negative
-                  />
-                  <DetailRow
-                    label="Custos Operacionais"
-                    tip="Contador, softwares, infraestrutura, etc."
-                    clt="—"
-                    pj={fmt(results.pj.costs)}
-                    negative
-                  />
-                  <tr className="bg-slate-900 text-white">
-                    <td className="px-6 py-6 font-black text-base">Disponível Líquido</td>
-                    <td className="px-6 py-6 font-black text-xl text-blue-400">{fmt(results.clt.netMonthly)}</td>
-                    <td className="px-6 py-6 font-black text-xl text-emerald-400">{fmt(results.pj.netMonthly)}</td>
-                  </tr>
-                </tbody>
-              </table>
+
+            <p
+              key={verdictKey}
+              className="num-flash font-black leading-none verdict-glow"
+              style={{
+                fontFamily: "'Roboto Mono', monospace",
+                fontSize: 'clamp(2.6rem, 5.5vw, 4rem)',
+                color: accent,
+                textShadow: isDark ? `0 0 80px ${accent}50` : 'none',
+              }}
+            >
+              {fmtShort(Math.abs(r.difference.annual))}
+            </p>
+
+            <div className="flex flex-wrap items-center justify-between gap-y-3 mt-3">
+              <div className="flex flex-wrap gap-x-5 gap-y-1">
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: accent, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {fmt(Math.abs(r.difference.monthly))}
+                  </span>{' '}
+                  por mês
+                </span>
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: accent, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {Math.abs(r.difference.percent).toFixed(1)}%
+                  </span>{' '}
+                  de ganho a mais
+                </span>
+              </div>
+
+              {/* PDF button */}
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold tracking-wide transition-all"
+                style={{
+                  background: accentDim,
+                  color: accent,
+                  border: `1px solid ${accent}40`,
+                  fontFamily: 'Roboto, sans-serif',
+                  letterSpacing: '0.08em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = `${accent}22`;
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = accentDim;
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'none';
+                }}
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                Baixar PDF
+              </button>
             </div>
-            {/* Legenda tabelas */}
-            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 text-xs text-slate-400 leading-relaxed">
-              Tabelas {currentYear}: INSS progressivo (7,5–14%), IRRF com isenção progressiva até R$5.000, Simples Nacional Anexo III mensal. Pró-labore mínimo: MAX(faturamento × {pct(pj.proLaboreRate)}, R$1.621).
+          </div>
+          <div
+            className="verdict-gradient-line"
+            style={{
+              height: 1,
+              background: `linear-gradient(90deg, transparent, ${accent}50, transparent)`,
+            }}
+          />
+        </div>
+
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: 'CLT Líquido',  net: r.clt.netMonthly, annual: r.clt.totalAnnualNet, color: cltColor, flashKey: cltKey },
+            { label: 'PJ Líquido',   net: r.pj.netMonthly,  annual: r.pj.totalAnnualNet,  color: pjColor,  flashKey: pjKey  },
+          ].map(card => (
+            <div key={card.label} className="rounded-xl px-5 py-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: card.color }} />
+                <span className="field-label" style={{ marginBottom: 0 }}>{card.label}</span>
+              </div>
+              <p
+                key={card.flashKey}
+                className="num-flash text-xl font-bold"
+                style={{ color: card.color, fontFamily: "'Roboto Mono', monospace" }}
+              >
+                {fmt(card.net)}
+              </p>
+              <p className="text-[11px] mt-1" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+                {fmtShort(card.annual)}/ano
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <AdUnit slot="6312517973" format="auto" />
+
+        {/* Detail table */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: v('border') }}>
+            <span className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+              Demonstrativo Fiscal {year}
+            </span>
+            <div className="flex items-center gap-4 text-[10px] font-bold tracking-wider" style={{ fontFamily: 'Roboto, sans-serif' }}>
+              <span style={{ color: cltColor }}>● CLT</span>
+              <span style={{ color: pjColor }}>● PJ</span>
             </div>
           </div>
 
-          {/* Custo para empresa */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-6">
-            <h3 className="font-black text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-              <Scale className="w-4 h-4 text-slate-400" /> Custo Total para a Empresa
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-2xl p-5">
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">CLT</p>
-                <p className="text-2xl font-black text-blue-700">{fmt(results.clt.employerCost)}</p>
-                <p className="text-xs text-blue-400 mt-1">+{pct(clt.employerChargesRate)} de encargos</p>
-              </div>
-              <div className="bg-emerald-50 rounded-2xl p-5">
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-1">PJ</p>
-                <p className="text-2xl font-black text-emerald-700">{fmt(results.pj.billingMonthly)}</p>
-                <p className="text-xs text-emerald-400 mt-1">faturamento bruto contratado</p>
-              </div>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${v('border')}` }}>
+                  {['Item', 'CLT', 'PJ — Simples III'].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`px-6 py-3 text-[10px] font-bold tracking-[0.15em] uppercase ${i === 0 ? 'text-left' : 'text-right'}`}
+                      style={{ color: i === 0 ? v('t3') : i === 1 ? cltColor : pjColor, fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <TRow label="Bruto / Faturamento" clt={fmt(r.clt.grossMonthly)} pj={fmt(r.pj.billingMonthly)} cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="INSS" clt={fmt(r.clt.inss)} pj={fmt(r.pj.inssPatronal)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="IRRF" clt={fmt(r.clt.irrf)} pj={fmt(r.pj.irrf)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="DAS — Simples Nacional III" clt={null} pj={fmt(r.pj.simplesNacional)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="Custos Operacionais" clt={null} pj={fmt(r.pj.costs)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="Disponível Líquido" clt={fmt(r.clt.netMonthly)} pj={fmt(r.pj.netMonthly)} totals cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-6 py-3 border-t text-[10px] leading-relaxed" style={{ borderColor: v('border'), color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+            INSS 7,5–14% progressivo · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III · INSS Patronal Simples 11%
           </div>
         </div>
-      </div>
 
-      {/* Info cards */}
-      <section className="mt-20 grid md:grid-cols-3 gap-6">
-        {[
-          {
-            icon: <Scale className="text-blue-500 w-6 h-6" />,
-            title: 'Tabelas 2026',
-            desc: `INSS progressivo atualizado, IRRF com isenção para renda até R$5.000 e Simples Nacional Anexo III. Pró-labore mínimo respeitado (Fator R).`,
-          },
-          {
-            icon: <TrendingUp className="text-emerald-500 w-6 h-6" />,
-            title: 'Potencial Real de Ganho',
-            desc: 'Descubra quanto você realmente leva para casa após todos os descontos invisíveis do CLT e do PJ, com INSS Patronal Simples correto.',
-          },
-          {
-            icon: <ShieldCheck className="text-amber-500 w-6 h-6" />,
-            title: 'Privacidade Total',
-            desc: 'Simulação 100% local. Seus dados não saem do seu navegador e são descartados ao fechar a aba.',
-          },
-        ].map((item, i) => (
-          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/30 hover:-translate-y-2 transition-transform duration-500">
-            <div className="bg-slate-50 w-14 h-14 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
-              {item.icon}
-            </div>
-            <h3 className="text-lg font-black text-slate-800 mb-3">{item.title}</h3>
-            <p className="text-slate-500 leading-relaxed text-sm font-medium">{item.desc}</p>
+        {/* Employer cost */}
+        <div className="rounded-2xl p-6" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-5" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+            Custo Total Para a Empresa
+          </p>
+          <div className="grid grid-cols-2 gap-6 mb-5">
+            {[
+              { label: 'CLT', value: r.clt.employerCost, color: cltColor, sub: `+${(clt.employerChargesRate * 100).toFixed(1)}% encargos` },
+              { label: 'PJ',  value: r.pj.billingMonthly,  color: pjColor,  sub: 'faturamento bruto' },
+            ].map(item => (
+              <div key={item.label}>
+                <p className="field-label">{item.label}</p>
+                <p className="text-xl font-bold" style={{ color: item.color, fontFamily: "'Roboto Mono', monospace" }}>
+                  {fmt(item.value)}
+                </p>
+                <p className="text-[11px] mt-1" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>{item.sub}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </section>
-    </div>
-  );
+          {[
+            { label: 'CLT', value: r.clt.employerCost,   color: cltColor },
+            { label: 'PJ',  value: r.pj.billingMonthly,  color: pjColor  },
+          ].map(bar => {
+            const max = Math.max(r.clt.employerCost, r.pj.billingMonthly);
+            return (
+              <div key={bar.label} className="flex items-center gap-3 mb-2.5 last:mb-0">
+                <span className="text-[10px] font-bold w-6 flex-shrink-0" style={{ color: bar.color, fontFamily: 'Roboto, sans-serif' }}>
+                  {bar.label}
+                </span>
+                <div className="flex-1 h-1 rounded-full" style={{ background: v('border2') }}>
+                  <div
+                    className="cost-bar h-full rounded-full"
+                    style={{ width: max > 0 ? `${(bar.value / max) * 100}%` : '0%', background: bar.color }}
+                  />
+                </div>
+                <span className="text-[11px] font-semibold w-28 text-right flex-shrink-0" style={{ color: bar.color, fontFamily: "'Roboto Mono', monospace" }}>
+                  {fmt(bar.value)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-  const renderTerms = () => (
-    <div className="max-w-4xl mx-auto py-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button onClick={() => setCurrentView('calculator')} className="flex items-center gap-2 text-blue-600 font-bold mb-10 hover:gap-3 transition-all">
-        <ArrowLeft className="w-5 h-5" /> Voltar para Calculadora
-      </button>
-      <h2 className="text-4xl font-black text-slate-900 mb-8 tracking-tighter">Termos de Uso</h2>
-      <div className="prose prose-slate prose-lg max-w-none text-slate-600 font-medium leading-relaxed space-y-6">
-        <p>Ao utilizar a <strong>Calculadora CLT x PJ Pro</strong>, você concorda com os termos aqui descritos.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">1. Finalidade Informativa</h3>
-        <p>O simulador tem caráter exclusivamente informativo e educativo. Os resultados são estimativas baseadas em parâmetros gerais e não constituem aconselhamento jurídico, contábil ou financeiro.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">2. Responsabilidade do Usuário</h3>
-        <p>A decisão final sobre regimes de contratação deve ser validada por um contador qualificado. O usuário é o único responsável pelas decisões tomadas com base nos dados gerados por este site.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">3. Atualização de Dados</h3>
-        <p>Buscamos manter as tabelas de {currentYear} atualizadas (INSS, IRPF, Simples Nacional), mas alterações legislativas podem ocorrer sem aviso prévio.</p>
+        <AdUnit slot="6312517973" format="auto" />
+
+        {/* Trust badges */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { icon: <TrendingUp className="w-4 h-4" />, color: pjColor,  title: `Tabelas ${year}`,   desc: 'INSS, IRRF e Simples Nacional atualizados. Isenção progressiva 2026.' },
+            { icon: <Shield     className="w-4 h-4" />, color: cltColor, title: 'Cálculo Preciso',   desc: 'INSS Patronal Simples (11%), Fator R e desconto simplificado aplicados.' },
+            { icon: <Lock       className="w-4 h-4" />, color: '#9B8CFF', title: 'Privacidade Total', desc: 'Tudo local no browser. Nenhum dado enviado a servidores.' },
+          ].map((item, i) => (
+            <div key={i} className="rounded-xl p-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{ color: item.color }}>{item.icon}</span>
+                <p className="text-[11px] font-bold" style={{ color: item.color, fontFamily: 'Roboto, sans-serif' }}>{item.title}</p>
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 
-  const renderPrivacy = () => (
-    <div className="max-w-4xl mx-auto py-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button onClick={() => setCurrentView('calculator')} className="flex items-center gap-2 text-blue-600 font-bold mb-10 hover:gap-3 transition-all">
-        <ArrowLeft className="w-5 h-5" /> Voltar para Calculadora
+  // ── Static pages ─────────────────────────────────────────────────────────────
+  const staticPage = (title: string, content: React.ReactNode) => (
+    <div className="page-in max-w-2xl mx-auto px-6 py-12">
+      <button
+        onClick={() => setView('calculator')}
+        className="flex items-center gap-2 text-[12px] font-bold mb-10 transition-colors"
+        style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}
+      >
+        <ArrowLeft className="w-4 h-4" /> Voltar
       </button>
-      <h2 className="text-4xl font-black text-slate-900 mb-8 tracking-tighter">Política de Privacidade</h2>
-      <div className="prose prose-slate prose-lg max-w-none text-slate-600 font-medium leading-relaxed space-y-6">
-        <p>Sua privacidade é nossa prioridade na <strong>Calculadora CLT x PJ Pro</strong>.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">1. Coleta de Dados</h3>
-        <p>Não coletamos, armazenamos ou transmitimos nenhum dado financeiro inserido no simulador. Todos os cálculos são realizados localmente no seu navegador.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">2. Cookies e Anúncios</h3>
-        <p>Utilizamos cookies básicos para análise de tráfego e exibição de anúncios via Google AdSense, que pode coletar informações anônimas de navegação.</p>
-        <h3 className="text-2xl font-black text-slate-800 pt-6">3. Segurança</h3>
-        <p>Por não salvarmos dados em servidores externos, sua simulação financeira está protegida de vazamentos. Ao fechar a aba, os dados são descartados.</p>
+      <h2 className="text-3xl font-bold mb-8" style={{ color: v('t1'), fontFamily: 'Roboto, sans-serif' }}>
+        {title}
+      </h2>
+      <div className="space-y-5 text-sm leading-relaxed" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+        {content}
       </div>
     </div>
   );
 
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-blue-100 selection:text-blue-900">
-      {/* Background */}
-      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-[120px] -translate-y-1/2" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-emerald-100/50 rounded-full blur-[120px] translate-y-1/2" />
-      </div>
+    <div style={{ background: v('bg'), color: v('t1'), minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('calculator')}>
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-blue-500/20 group-hover:rotate-12 transition-transform duration-500">
-              <Calculator className="w-6 h-6 text-white" />
+      <header
+        className="sticky top-0 z-50 border-b"
+        style={{
+          background: v('header-bg'),
+          borderColor: v('border'),
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+        }}
+      >
+        <div className="max-w-[1440px] mx-auto px-6 flex items-center justify-between" style={{ height: 72 }}>
+          {/* Logo */}
+          <button onClick={() => setView('calculator')} className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: pjColor }}>
+              <Calculator className="w-[18px] h-[18px]" style={{ color: isDark ? '#0C0E14' : '#fff' }} />
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none">CLT <span className="text-blue-600">vs</span> PJ</h1>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Calculadora Pro {currentYear}</span>
+            <div className="text-left">
+              <p className="text-base font-bold leading-tight" style={{ fontFamily: 'Roboto, sans-serif', color: v('t1') }}>
+                CLT <span style={{ color: pjColor }}>vs</span> PJ
+              </p>
+              <p className="text-[9px] tracking-[0.22em] uppercase mt-0.5" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+                Calculadora Pro
+              </p>
             </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="bg-slate-100 px-4 py-2 rounded-full flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tabelas {currentYear}</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Live tables badge */}
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase"
+              style={{ background: v('surface2'), color: pjColor, border: `1px solid ${v('border2')}`, fontFamily: 'Roboto, sans-serif' }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: pjColor, animation: 'glowPulse 2s ease-in-out infinite' }}
+              />
+              Tabelas {year}
             </div>
+
+            {/* Theme toggle */}
+            <button
+              className="theme-btn"
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+            >
+              {theme === 'dark'
+                ? <Sun  className="w-4 h-4" />
+                : <Moon className="w-4 h-4" />
+              }
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8 w-full">
-        {currentView === 'calculator' && renderCalculator()}
-        {currentView === 'terms' && renderTerms()}
-        {currentView === 'privacy' && renderPrivacy()}
+      {/* Main */}
+      <main className="flex-grow max-w-[1440px] mx-auto w-full">
+        {view === 'calculator' && calculator}
+        {view === 'terms' && staticPage('Termos de Uso', (
+          <>
+            <p>Ao utilizar a <strong style={{ color: v('t1') }}>Calculadora CLT × PJ Pro</strong>, você concorda com os termos aqui descritos.</p>
+            <p><strong style={{ color: v('t1') }}>Finalidade Informativa:</strong> Caráter exclusivamente informativo. Os resultados são estimativas e não constituem aconselhamento jurídico, contábil ou financeiro.</p>
+            <p><strong style={{ color: v('t1') }}>Responsabilidade:</strong> A decisão final deve ser validada por um contador qualificado.</p>
+            <p><strong style={{ color: v('t1') }}>Atualização:</strong> Tabelas de {year} mantidas atualizadas, mas alterações legislativas podem ocorrer sem aviso prévio.</p>
+          </>
+        ))}
+        {view === 'privacy' && staticPage('Política de Privacidade', (
+          <>
+            <p>Não coletamos, armazenamos ou transmitimos nenhum dado financeiro. Todos os cálculos são realizados localmente no seu navegador.</p>
+            <p><strong style={{ color: v('t1') }}>Cookies:</strong> Usamos cookies para análise de tráfego e anúncios via Google AdSense.</p>
+            <p><strong style={{ color: v('t1') }}>Segurança:</strong> Ao fechar a aba, todos os dados são descartados. Nada é enviado a servidores externos.</p>
+          </>
+        ))}
       </main>
 
-      <AdUnit slot="6312517973" format="auto" className="max-w-6xl mx-auto" />
-
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-100 py-20 mt-20 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
-          <div className="flex flex-col items-center mb-12">
-            <div className="bg-slate-100 p-3 rounded-[1.5rem] mb-6 shadow-inner">
-              <Calculator className="w-8 h-8 text-slate-400" />
+      <footer className="border-t mt-8" style={{ borderColor: v('border'), background: v('surface') }}>
+
+        {/* LinkedIn CTA */}
+        <div
+          className="border-b py-8 px-6"
+          style={{ borderColor: v('border') }}
+        >
+          <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
+            <div>
+              <p className="text-base font-bold" style={{ color: v('t1'), fontFamily: 'Roboto, sans-serif' }}>
+                Esse comparativo te ajudou?
+              </p>
+              <p className="text-sm mt-0.5" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+                Sigo compartilhando conteúdo sobre carreira, tecnologia e finanças para devs.
+              </p>
             </div>
-            <span className="text-2xl font-black text-slate-900 tracking-tighter">Decida com Dados.</span>
-            <p className="text-slate-400 text-sm mt-3 font-medium max-w-md">
-              A ferramenta definitiva para comparar regimes de contratação com precisão fiscal e matemática.
-            </p>
+            <a
+              href="https://www.linkedin.com/in/otaviorafaelarruda/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="linkedin-btn flex-shrink-0"
+            >
+              <LinkedInIcon />
+              Me seguir no LinkedIn
+            </a>
           </div>
+        </div>
 
-          <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-12">
-            <button onClick={() => setCurrentView('terms')} className="hover:text-blue-600 transition-colors">Termos de Uso</button>
-            <button onClick={() => setCurrentView('privacy')} className="hover:text-blue-600 transition-colors">Privacidade</button>
-          </div>
-
-          <div className="pt-12 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-              © {currentYear} Calculadora CLT x PJ. Todos os direitos reservados.
-            </p>
+        {/* Bottom bar */}
+        <div className="py-5 px-6">
+          <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div
+              className="flex flex-wrap items-center gap-6 text-[10px] font-bold tracking-[0.18em] uppercase"
+              style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}
+            >
+              <button onClick={() => setView('terms')} style={{ color: v('t3') }}
+                onMouseEnter={e => (e.currentTarget.style.color = pjColor)}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}>
+                Termos
+              </button>
+              <button onClick={() => setView('privacy')} style={{ color: v('t3') }}
+                onMouseEnter={e => (e.currentTarget.style.color = pjColor)}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}>
+                Privacidade
+              </button>
+              <span>© {year} CLT vs PJ</span>
+            </div>
             <a
               href="https://orlamsolutions.or.app.br/"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 bg-slate-50 px-6 py-3 rounded-2xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-500"
+              className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+              style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}
+              onMouseEnter={e => (e.currentTarget.style.color = pjColor)}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}
             >
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">Powered by Agency</span>
-                <span className="text-sm font-black text-slate-800 tracking-tighter">Orlam Solutions</span>
-              </div>
-              <div className="bg-white p-1.5 rounded-lg border border-slate-100 group-hover:rotate-12 transition-transform">
-                <ExternalLink className="w-3.5 h-3.5 text-blue-500" />
-              </div>
+              Orlam Solutions <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </div>

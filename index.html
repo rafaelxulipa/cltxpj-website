@@ -1,33 +1,284 @@
 
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora CLT x PJ | Comparativo Salarial</title>
-    <meta name="description" content="Compare seu salário CLT com uma proposta PJ. Calcule impostos, benefícios, 13º, férias e descubra qual a melhor opção para sua carreira.">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
-    <!-- Placeholder for Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0079702856690089" crossorigin="anonymous"></script>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "recharts": "https://esm.sh/recharts@^3.6.0"
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora CLT x PJ | Comparativo Salarial</title>
+  <meta name="description" content="Compare seu salário CLT com uma proposta PJ. Calcule impostos, benefícios, 13º, férias e descubra qual a melhor opção para sua carreira.">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Roboto + Roboto Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Theme tokens ───────────────────────────────────────────────────────── */
+    :root,
+    [data-theme="dark"] {
+      --bg:       #0C0E14;
+      --surface:  #131318;
+      --surface2: #191920;
+      --border:   #1E1E2A;
+      --border2:  #2A2A38;
+      --t1: #EDEEE8;
+      --t2: #666672;
+      --t3: #363642;
+      --pj:  #B2FF5C;
+      --clt: #5CA0FF;
+      --neg: #FF5D6C;
+      --dot-color: rgba(255,255,255,0.04);
+      --header-bg: rgba(12,14,20,0.88);
+      --scrollbar-thumb: #2A2A38;
+      --input-border: #1E1E2A;
+      --tag-border: rgba(255,255,255,0.06);
+    }
+
+    [data-theme="light"] {
+      --bg:       #F4F5FA;
+      --surface:  #FFFFFF;
+      --surface2: #ECEDF4;
+      --border:   #E0E0EC;
+      --border2:  #CACAD8;
+      --t1: #0C0E18;
+      --t2: #5C5C72;
+      --t3: #A8A8C0;
+      --pj:  #16A34A;
+      --clt: #1D60C8;
+      --neg: #DC2626;
+      --dot-color: rgba(0,0,0,0.05);
+      --header-bg: rgba(244,245,250,0.92);
+      --scrollbar-thumb: #CACAD8;
+      --input-border: #E0E0EC;
+      --tag-border: rgba(0,0,0,0.06);
+    }
+
+    /* ── Base ───────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { transition: background-color 0.25s ease, color 0.25s ease; }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--bg);
+      color: var(--t1);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Dot-grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+      transition: none;
+    }
+
+    #root { position: relative; z-index: 1; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+    /* ── Range slider ── */
+    .custom-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 2px;
+      background: var(--border2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .custom-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--pj);
+      cursor: pointer;
+      border: 2px solid var(--bg);
+      transition: box-shadow 0.2s ease;
+    }
+    .custom-range:hover::-webkit-slider-thumb {
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--pj) 20%, transparent);
+    }
+    .custom-range:active::-webkit-slider-thumb {
+      box-shadow: 0 0 0 8px color-mix(in srgb, var(--pj) 12%, transparent);
+    }
+    .custom-range::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--pj); border: 2px solid var(--bg); cursor: pointer;
+    }
+
+    /* ── Field styles ── */
+    .field-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1.5px solid var(--border2);
+      outline: none;
+      color: var(--t1);
+      font-family: 'Roboto Mono', monospace;
+      padding: 8px 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      transition: border-color 0.2s ease;
+    }
+    .field-input:focus          { border-bottom-color: var(--pj); }
+    .field-input.clt-focus:focus { border-bottom-color: var(--clt); }
+
+    .field-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--t2);
+      margin-bottom: 6px;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    /* ── Transitions for theme change ── */
+    .surface-card {
+      background: var(--surface);
+      border-color: var(--border);
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+
+    /* ── Cost bar ── */
+    .cost-bar { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    /* ── Page transition ── */
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .page-in { animation: pageIn 0.3s ease-out forwards; }
+
+    /* ── Number flash ── */
+    @keyframes numIn {
+      from { opacity: 0.2; transform: translateY(3px) scale(0.98); }
+      to   { opacity: 1;   transform: translateY(0)   scale(1); }
+    }
+    .num-flash { animation: numIn 0.22s ease-out forwards; }
+
+    /* ── Glow pulse (header badge dot) ── */
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.6; }
+      50%       { opacity: 1; }
+    }
+
+    /* ── Print / PDF styles ── */
+    @media print {
+      @page {
+        size: A4;
+        margin: 14mm 14mm 16mm 14mm;
+      }
+
+      body {
+        background: #fff !important;
+        color: #111 !important;
+        font-size: 10pt;
+      }
+      body::before { display: none; }
+
+      /* Hide everything except the print container */
+      body > div > * { display: none !important; }
+      #pdf-report    { display: block !important; }
+
+      .pdf-page-break { page-break-before: always; }
+
+      /* Force light colors for print */
+      #pdf-report { color: #111; }
+      #pdf-report .pdf-accent-pj  { color: #16A34A !important; }
+      #pdf-report .pdf-accent-clt { color: #1D60C8 !important; }
+      #pdf-report .pdf-neg        { color: #DC2626 !important; }
+      #pdf-report .pdf-muted      { color: #555    !important; }
+      #pdf-report .pdf-table td,
+      #pdf-report .pdf-table th   { border-color: #E0E0EC !important; }
+      #pdf-report .pdf-hero       { border: 1.5px solid #16A34A; border-radius: 8px; }
+      #pdf-report .pdf-hero.clt-w { border-color: #1D60C8; }
+    }
+
+    /* ── Theme toggle button ── */
+    .theme-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      background: var(--surface);
+      color: var(--t2);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .theme-btn:hover {
+      background: var(--surface2);
+      color: var(--t1);
+      transform: rotate(15deg);
+    }
+
+    /* ── LinkedIn CTA ── */
+    .linkedin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      background: #0A66C2;
+      color: #FFFFFF;
+      font-family: 'Roboto', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .linkedin-btn:hover {
+      background: #0856A4;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(10,102,194,0.35);
+    }
+
+    /* ── Light mode verdict ── */
+    [data-theme="light"] .verdict-glow {
+      text-shadow: none !important;
+    }
+    [data-theme="light"] .verdict-gradient-line {
+      opacity: 0.5;
+    }
+  </style>
+
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0079702856690089" crossorigin="anonymous"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "react/": "https://esm.sh/react@^19.2.3/",
+      "react": "https://esm.sh/react@^19.2.3",
+      "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+      "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+      "recharts": "https://esm.sh/recharts@^3.6.0"
+    }
   }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+  </script>
+  <link rel="stylesheet" href="/index.css">
+
+  <!-- Apply saved theme before paint -->
+  <script>
+    (function () {
+      const t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
