@@ -137,7 +137,7 @@ const PctField: React.FC<{
         />
         <span
           className="absolute right-0 bottom-2"
-          style={{ color: v('t3'), fontFamily: "'Roboto Mono', monospace", fontSize: 14 }}
+          style={{ color: v('t2'), fontFamily: "'Roboto Mono', monospace", fontSize: 14 }}
         >
           %
         </span>
@@ -161,7 +161,7 @@ const ProLaboreSlider: React.FC<{
   const computed = Math.max(billing * rate, 1621);
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-1.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-y-1 mb-1.5">
         <label className="field-label" style={{ marginBottom: 0 }}>Pró-labore (Fator R)</label>
         <span style={{ color: pjColor, fontFamily: "'Roboto Mono', monospace", fontSize: 12, fontWeight: 700 }}>
           {(rate * 100).toFixed(0)}% → {fmt(computed)}
@@ -195,7 +195,7 @@ const TRow: React.FC<{
 }> = ({ label, clt, pj, negative, totals, cltColor, pjColor, negColor }) => (
   <tr style={{ background: totals ? v('surface2') : undefined, borderBottomColor: v('border') }}>
     <td
-      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-left text-[12px] border-b`}
+      className={`${totals ? 'py-5' : 'py-3.5'} px-2 sm:px-5 text-left text-[12px] border-b`}
       style={{
         color: totals ? v('t1') : v('t2'),
         fontFamily: 'Roboto, sans-serif',
@@ -209,7 +209,7 @@ const TRow: React.FC<{
       {label}
     </td>
     <td
-      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-right text-[12px] border-b`}
+      className={`${totals ? 'py-5' : 'py-3.5'} px-2 sm:px-5 text-right text-[12px] border-b whitespace-nowrap`}
       style={{
         fontFamily: "'Roboto Mono', monospace",
         fontWeight: totals ? 700 : 500,
@@ -221,7 +221,7 @@ const TRow: React.FC<{
       {clt ?? <span style={{ color: v('t3') }}>—</span>}
     </td>
     <td
-      className={`${totals ? 'py-5' : 'py-3.5'} px-6 text-right text-[12px] border-b`}
+      className={`${totals ? 'py-5' : 'py-3.5'} px-2 sm:px-5 text-right text-[12px] border-b whitespace-nowrap`}
       style={{
         fontFamily: "'Roboto Mono', monospace",
         fontWeight: totals ? 700 : 500,
@@ -445,7 +445,7 @@ const App: React.FC = () => {
 
       {/* ─── Inputs (sticky left) ────────────────────────────────────────── */}
       <div
-        className="lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto px-7 py-8 border-r"
+        className="lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto px-5 sm:px-7 py-8 border-b lg:border-b-0 lg:border-r"
         style={{ borderColor: v('border') }}
       >
         {/* CLT */}
@@ -592,15 +592,15 @@ const App: React.FC = () => {
             { label: 'CLT Líquido',  net: r.clt.netMonthly, annual: r.clt.totalAnnualNet, color: cltColor, flashKey: cltKey },
             { label: 'PJ Líquido',   net: r.pj.netMonthly,  annual: r.pj.totalAnnualNet,  color: pjColor,  flashKey: pjKey  },
           ].map(card => (
-            <div key={card.label} className="rounded-xl px-5 py-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+            <div key={card.label} className="rounded-xl px-3 sm:px-5 py-4 min-w-0 overflow-hidden" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
               <div className="flex items-center gap-1.5 mb-3">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: card.color }} />
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: card.color }} />
                 <span className="field-label" style={{ marginBottom: 0 }}>{card.label}</span>
               </div>
               <p
                 key={card.flashKey}
-                className="num-flash text-xl font-bold"
-                style={{ color: card.color, fontFamily: "'Roboto Mono', monospace" }}
+                className="num-flash font-bold truncate"
+                style={{ color: card.color, fontFamily: "'Roboto Mono', monospace", fontSize: 'clamp(0.9rem, 3.5vw, 1.25rem)' }}
               >
                 {fmt(card.net)}
               </p>
@@ -626,13 +626,13 @@ const App: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[340px]">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${v('border')}` }}>
                   {['Item', 'CLT', 'PJ — Simples III'].map((h, i) => (
                     <th
                       key={h}
-                      className={`px-6 py-3 text-[10px] font-bold tracking-[0.15em] uppercase ${i === 0 ? 'text-left' : 'text-right'}`}
+                      className={`px-2 sm:px-5 py-3 text-[10px] font-bold tracking-[0.15em] uppercase ${i === 0 ? 'text-left' : 'text-right'}`}
                       style={{ color: i === 0 ? v('t3') : i === 1 ? cltColor : pjColor, fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}
                     >
                       {h}
