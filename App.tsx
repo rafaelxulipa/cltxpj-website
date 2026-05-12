@@ -385,7 +385,7 @@ function buildPdfHtml(
   <!-- Footer -->
   <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;">
     <span style="font-size:8pt;color:#aaa;">Estimativa com base nas tabelas ${year}. Não substitui orientação contábil profissional.</span>
-    <span style="font-size:8pt;color:#aaa;">calculadoracltxpj.com.br</span>
+    <span style="font-size:8pt;color:#aaa;">calculadorapj.otaviorafael.com.br</span>
   </div>
 
 </body>
