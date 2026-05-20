@@ -1,24 +1,31 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect } from "react";
+import { getConsent } from "./CookieConsent";
 
 interface AdUnitProps {
   slot: string;
   format?: "auto" | "fluid" | "rectangle";
   className?: string;
+  consentAccepted?: boolean;
 }
 
 const AdUnit: React.FC<AdUnitProps> = ({
   slot,
   format = "auto",
   className = "",
+  consentAccepted,
 }) => {
+  const hasConsent = consentAccepted ?? getConsent() === 'accepted';
 
   useEffect(() => {
+    if (!hasConsent) return;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch (e) {
       console.error('AdSense script error:', e);
     }
-  }, []);
+  }, [hasConsent]);
+
+  if (!hasConsent) return null;
 
   return (
     <div

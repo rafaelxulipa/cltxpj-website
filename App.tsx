@@ -4,8 +4,9 @@ import { Calculator, ArrowLeft, ExternalLink, TrendingUp, Shield, Lock, Sun, Moo
 import { CltInputs, PjInputs } from './types';
 import { calculateFullComparison } from './services/calculator';
 import AdUnit from './components/AdUnit';
+import CookieConsent, { getConsent, setConsent, ConsentStatus } from './components/CookieConsent';
 
-type View  = 'calculator' | 'terms' | 'privacy';
+type View  = 'calculator' | 'terms' | 'privacy' | 'cookies';
 type Theme = 'dark' | 'light';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -400,6 +401,22 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(() =>
     (localStorage.getItem('theme') as Theme) || 'dark'
   );
+  const [consent, setConsentState] = useState<ConsentStatus>(() => getConsent());
+
+  useEffect(() => {
+    const handler = () => setView('cookies');
+    window.addEventListener('navigate-privacy', handler);
+    return () => window.removeEventListener('navigate-privacy', handler);
+  }, []);
+
+  function handleAccept() {
+    setConsent('accepted');
+    setConsentState('accepted');
+  }
+  function handleDecline() {
+    setConsent('declined');
+    setConsentState('declined');
+  }
 
   const [clt, setClt] = useState<CltInputs>({ grossSalary: 8500, employerChargesRate: 0.338 });
   const [pj,  setPj]  = useState<PjInputs>({ billingMonthly: 12500, proLaboreRate: 0.28, costsRate: 0.05 });
@@ -494,7 +511,7 @@ const App: React.FC = () => {
           />
         </div>
 
-        <div className="mt-8"><AdUnit slot="9217882912" /></div>
+        <div className="mt-8"><AdUnit slot="9217882912" consentAccepted={consent === 'accepted'} /></div>
       </div>
 
       {/* ─── Results (right) ─────────────────────────────────────────────── */}
@@ -611,7 +628,7 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <AdUnit slot="6312517973" format="auto" />
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
 
         {/* Detail table */}
         <div className="rounded-2xl overflow-hidden" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
@@ -699,7 +716,7 @@ const App: React.FC = () => {
           })}
         </div>
 
-        <AdUnit slot="6312517973" format="auto" />
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
 
         {/* Trust badges */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -811,9 +828,73 @@ const App: React.FC = () => {
         ))}
         {view === 'privacy' && staticPage('Política de Privacidade', (
           <>
-            <p>Não coletamos, armazenamos ou transmitimos nenhum dado financeiro. Todos os cálculos são realizados localmente no seu navegador.</p>
-            <p><strong style={{ color: v('t1') }}>Cookies:</strong> Usamos cookies para análise de tráfego e anúncios via Google AdSense.</p>
-            <p><strong style={{ color: v('t1') }}>Segurança:</strong> Ao fechar a aba, todos os dados são descartados. Nada é enviado a servidores externos.</p>
+            <p>Não coletamos, armazenamos ou transmitimos nenhum dado financeiro inserido na calculadora. Todos os cálculos são realizados localmente no seu navegador.</p>
+            <p><strong style={{ color: v('t1') }}>Dados coletados:</strong> Não há coleta de dados pessoais identificáveis. Não há cadastro, login ou formulário de contato neste site.</p>
+            <p><strong style={{ color: v('t1') }}>Cookies e publicidade:</strong> Utilizamos o Google AdSense para exibir anúncios. O Google pode usar cookies para personalizar anúncios com base nas suas visitas anteriores a este e a outros sites. Você pode optar por não receber anúncios personalizados acessando as <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" style={{ color: v('t1') }}>Configurações de anúncios do Google</a>.</p>
+            <p><strong style={{ color: v('t1') }}>Segurança:</strong> Ao fechar a aba, todos os dados inseridos são descartados. Nada é enviado a servidores externos.</p>
+            <p><strong style={{ color: v('t1') }}>Gerenciar consentimento:</strong>{' '}
+              <button
+                onClick={() => setView('cookies')}
+                style={{ background: 'none', border: 'none', padding: 0, color: v('t1'), cursor: 'pointer', fontSize: 'inherit', textDecoration: 'underline' }}
+              >
+                Clique aqui para revisar sua preferência de cookies.
+              </button>
+            </p>
+          </>
+        ))}
+        {view === 'cookies' && staticPage('Política de Privacidade e Cookies', (
+          <>
+            <h3 style={{ color: v('t1'), marginTop: 0 }}>O que são cookies?</h3>
+            <p>Cookies são pequenos arquivos de texto armazenados no seu navegador quando você visita um site. Eles servem para lembrar preferências, medir audiência e exibir publicidade relevante.</p>
+
+            <h3 style={{ color: v('t1') }}>Quais cookies usamos?</h3>
+            <p><strong style={{ color: v('t1') }}>Cookies de preferência (necessários):</strong> Salvamos no <code>localStorage</code> do seu navegador apenas o tema visual escolhido (claro/escuro) e sua preferência de consentimento de cookies. Esses dados ficam exclusivamente no seu dispositivo.</p>
+            <p><strong style={{ color: v('t1') }}>Cookies de publicidade (Google AdSense):</strong> Se você aceitar, o Google AdSense pode armazenar cookies para exibir anúncios personalizados. O Google coleta dados como páginas visitadas, localização aproximada e interesses inferidos para personalizar os anúncios.</p>
+
+            <h3 style={{ color: v('t1') }}>Dados que NÃO coletamos</h3>
+            <p>Todos os valores financeiros digitados na calculadora (salário, encargos, faturamento etc.) são processados apenas no seu navegador e nunca são enviados a nenhum servidor.</p>
+
+            <h3 style={{ color: v('t1') }}>Seus direitos</h3>
+            <p>Você pode recusar os cookies de publicidade a qualquer momento usando os botões abaixo. Ao recusar, os anúncios do Google AdSense não serão carregados. Sua preferência fica salva no seu navegador.</p>
+            <p>Para revogar o consentimento junto ao Google, acesse: <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" style={{ color: v('t1') }}>adssettings.google.com</a>.</p>
+
+            <h3 style={{ color: v('t1') }}>Contato</h3>
+            <p>Dúvidas? Entre em contato via <a href="https://www.linkedin.com/in/otaviorafaelarruda/" target="_blank" rel="noopener noreferrer" style={{ color: v('t1') }}>LinkedIn</a>.</p>
+
+            <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => { handleAccept(); setView('calculator'); }}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: isDark ? '#B2FF5C' : '#16A34A',
+                  color: isDark ? '#0d0d1a' : '#fff',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                {consent === 'accepted' ? '✓ Cookies aceitos' : 'Aceitar cookies de publicidade'}
+              </button>
+              <button
+                onClick={() => { handleDecline(); setView('calculator'); }}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 6,
+                  border: `1px solid ${v('border')}`,
+                  background: 'transparent',
+                  color: v('t2'),
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                {consent === 'declined' ? '✓ Cookies recusados' : 'Recusar cookies de publicidade'}
+              </button>
+            </div>
           </>
         ))}
       </main>
@@ -864,6 +945,11 @@ const App: React.FC = () => {
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}>
                 Privacidade
               </button>
+              <button onClick={() => setView('cookies')} style={{ color: v('t3') }}
+                onMouseEnter={e => (e.currentTarget.style.color = pjColor)}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}>
+                Cookies
+              </button>
               <span>© {year} CLT vs PJ</span>
             </div>
             <a
@@ -880,6 +966,10 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {consent === null && (
+        <CookieConsent onAccept={handleAccept} onDecline={handleDecline} />
+      )}
     </div>
   );
 };
