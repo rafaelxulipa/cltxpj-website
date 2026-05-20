@@ -396,6 +396,230 @@ function buildPdfHtml(
 </html>`;
 }
 
+// ── PDF PJ only ───────────────────────────────────────────────────────────────
+function buildPjOnlyPdfHtml(
+  r: ReturnType<typeof calculateFullComparison>,
+  pj: PjInputs,
+  year: number,
+): string {
+  const accent   = '#16A34A';
+  const accentBg = '#f0fdf4';
+  const proLabore = fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621));
+  const today     = new Date().toLocaleDateString('pt-BR');
+  const taxLoad   = pj.billingMonthly > 0
+    ? ((-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100).toFixed(1)
+    : '0.0';
+
+  const card = (content: string) =>
+    `<div style="border:1px solid #e0e0ec;border-radius:8px;padding:14px;">${content}</div>`;
+  const label = (text: string, color = '#888') =>
+    `<p style="font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${color};margin-bottom:7px;font-family:Roboto,sans-serif;">${text}</p>`;
+  const kv = (k: string, val: string, valColor = '#111') =>
+    `<div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+       <span style="color:#555;font-size:10pt;">${k}</span>
+       <span style="font-family:'Roboto Mono',monospace;font-weight:700;color:${valColor};">${val}</span>
+     </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório PJ — ${today}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Roboto', sans-serif; color: #111; background: #fff; font-size: 10pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .mono { font-family: 'Roboto Mono', monospace; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 8pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; border-bottom: 1.5px solid #e0e0ec; padding: 6px 8px; color: #888; font-family: Roboto, sans-serif; }
+    td { padding: 7px 8px; font-size: 10pt; border-bottom: 1px solid #f0f0f8; }
+    .tr { text-align: right; }
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;border-bottom:2px solid #111;padding-bottom:12px;">
+    <div>
+      <div style="font-size:22pt;font-weight:900;letter-spacing:-.02em;">
+        Calculadora <span style="color:${accent};">PJ</span>
+      </div>
+      <div style="font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-top:3px;">
+        Relatório Simples Nacional III — Pessoa Jurídica
+      </div>
+    </div>
+    <div style="text-align:right;font-size:9pt;color:#888;line-height:1.7;">
+      <div>Gerado em ${today}</div>
+      <div>Tabelas ${year} · INSS, IRRF, Simples Nacional III</div>
+    </div>
+  </div>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:9px;">Parâmetros Simulados</div>
+  <div class="g3" style="margin-bottom:18px;">
+    ${card(label('Faturamento Mensal', accent) + `<div class="mono" style="font-size:14pt;font-weight:900;color:${accent};">${fmt(pj.billingMonthly)}</div>`)}
+    ${card(label('Pró-labore (Fator R)', accent) + `<div class="mono" style="font-size:14pt;font-weight:900;color:${accent};">${proLabore}</div><div style="font-size:9pt;color:#888;margin-top:3px;">${(pj.proLaboreRate * 100).toFixed(0)}% do faturamento</div>`)}
+    ${card(label('Custos Operacionais', '#888') + `<div class="mono" style="font-size:14pt;font-weight:900;color:#444;">${fmt(-r.pj.costs)}</div><div style="font-size:9pt;color:#888;margin-top:3px;">${(pj.costsRate * 100).toFixed(1)}% do faturamento</div>`)}
+  </div>
+
+  <div style="border:1.5px solid ${accent};border-radius:10px;padding:16px 20px;margin-bottom:18px;background:${accentBg};">
+    ${label('Disponível Líquido Mensal', accent)}
+    <div class="mono" style="font-size:32pt;font-weight:900;color:${accent};line-height:1;margin-bottom:6px;">${fmt(r.pj.netMonthly)}</div>
+    <div style="display:flex;gap:24px;font-size:10pt;color:#555;">
+      <span><strong class="mono" style="color:${accent};">${fmtShort(r.pj.totalAnnualNet)}</strong> por ano</span>
+      <span><strong class="mono" style="color:#DC2626;">${taxLoad}%</strong> carga fiscal total</span>
+    </div>
+  </div>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Demonstrativo Fiscal Detalhado — ${year}</div>
+  <table style="margin-bottom:18px;">
+    <thead>
+      <tr>
+        <th style="width:55%;">Discriminação</th>
+        <th class="tr" style="color:#888;">Valor</th>
+        <th class="tr" style="color:#888;">% sobre faturamento</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:#444;">Faturamento Bruto</td><td class="tr mono" style="font-weight:500;">${fmt(r.pj.billingMonthly)}</td><td class="tr mono" style="color:#888;">100%</td></tr>
+      <tr><td style="color:#444;">INSS Patronal (Simples — 11% s/ pró-labore)</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.inssPatronal)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.inssPatronal / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
+      <tr><td style="color:#444;">IRRF s/ pró-labore</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.irrf)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.irrf / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
+      <tr><td style="color:#444;">DAS — Simples Nacional III</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.simplesNacional)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.simplesNacional / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
+      <tr><td style="color:#444;">Custos Operacionais</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.costs)}</td><td class="tr mono" style="color:#DC2626;">${(pj.costsRate * 100).toFixed(1)}%</td></tr>
+      <tr style="background:#f7f8fc;">
+        <td style="font-weight:700;font-size:11pt;text-transform:uppercase;letter-spacing:.05em;border-bottom:none;">Disponível Líquido</td>
+        <td class="tr mono" style="font-weight:900;font-size:13pt;color:${accent};border-bottom:none;">${fmt(r.pj.netMonthly)}</td>
+        <td class="tr mono" style="font-weight:900;color:${accent};border-bottom:none;">${pj.billingMonthly > 0 ? (r.pj.netMonthly / pj.billingMonthly * 100).toFixed(1) : '0'}%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Pró-labore e INSS</div>
+  <div class="g2" style="margin-bottom:24px;">
+    ${card(label('Pró-labore Calculado', accent) + kv('Fator R aplicado', `${(pj.proLaboreRate * 100).toFixed(0)}%`) + kv('Valor pró-labore', proLabore, accent) + kv('Mínimo absoluto', fmt(1621)))}
+    ${card(label('INSS Patronal', '#888') + kv('Base de cálculo', proLabore) + kv('Alíquota Simples', '11%') + kv('INSS descontado', fmt(r.pj.inssPatronal), '#DC2626'))}
+  </div>
+
+  <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;">
+    <span style="font-size:8pt;color:#aaa;">Estimativa com base nas tabelas ${year}. Não substitui orientação contábil profissional.</span>
+    <span style="font-size:8pt;color:#aaa;">calculadorapj.otaviorafael.com.br</span>
+  </div>
+</body>
+</html>`;
+}
+
+// ── PDF CLT only ──────────────────────────────────────────────────────────────
+function buildCltOnlyPdfHtml(
+  r: ReturnType<typeof calculateFullComparison>,
+  clt: CltInputs,
+  year: number,
+): string {
+  const accent   = '#1D60C8';
+  const accentBg = '#eff6ff';
+  const today    = new Date().toLocaleDateString('pt-BR');
+  const taxLoad  = clt.grossSalary > 0
+    ? ((clt.grossSalary - r.clt.netMonthly) / clt.grossSalary * 100).toFixed(1)
+    : '0.0';
+
+  const card = (content: string) =>
+    `<div style="border:1px solid #e0e0ec;border-radius:8px;padding:14px;">${content}</div>`;
+  const label = (text: string, color = '#888') =>
+    `<p style="font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${color};margin-bottom:7px;font-family:Roboto,sans-serif;">${text}</p>`;
+  const kv = (k: string, val: string, valColor = '#111') =>
+    `<div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+       <span style="color:#555;font-size:10pt;">${k}</span>
+       <span style="font-family:'Roboto Mono',monospace;font-weight:700;color:${valColor};">${val}</span>
+     </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório CLT — ${today}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Roboto', sans-serif; color: #111; background: #fff; font-size: 10pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .mono { font-family: 'Roboto Mono', monospace; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 8pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; border-bottom: 1.5px solid #e0e0ec; padding: 6px 8px; color: #888; font-family: Roboto, sans-serif; }
+    td { padding: 7px 8px; font-size: 10pt; border-bottom: 1px solid #f0f0f8; }
+    .tr { text-align: right; }
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;border-bottom:2px solid #111;padding-bottom:12px;">
+    <div>
+      <div style="font-size:22pt;font-weight:900;letter-spacing:-.02em;">
+        Calculadora <span style="color:${accent};">CLT</span>
+      </div>
+      <div style="font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-top:3px;">
+        Relatório Regime CLT — Carteira Assinada
+      </div>
+    </div>
+    <div style="text-align:right;font-size:9pt;color:#888;line-height:1.7;">
+      <div>Gerado em ${today}</div>
+      <div>Tabelas ${year} · INSS progressivo · IRRF 2026</div>
+    </div>
+  </div>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:9px;">Parâmetros Simulados</div>
+  <div class="g2" style="margin-bottom:18px;">
+    ${card(label('Salário Bruto Mensal', accent) + `<div class="mono" style="font-size:14pt;font-weight:900;color:${accent};">${fmt(clt.grossSalary)}</div>`)}
+    ${card(label('Encargos Patronais', '#888') + `<div class="mono" style="font-size:14pt;font-weight:900;color:#444;">${(clt.employerChargesRate * 100).toFixed(1)}%</div><div style="font-size:9pt;color:#888;margin-top:3px;">INSS (20%) + FGTS (8%) + 13º + Férias + PIS/PASEP</div>`)}
+  </div>
+
+  <div style="border:1.5px solid ${accent};border-radius:10px;padding:16px 20px;margin-bottom:18px;background:${accentBg};">
+    ${label('Disponível Líquido Mensal', accent)}
+    <div class="mono" style="font-size:32pt;font-weight:900;color:${accent};line-height:1;margin-bottom:6px;">${fmt(r.clt.netMonthly)}</div>
+    <div style="display:flex;gap:24px;font-size:10pt;color:#555;">
+      <span><strong class="mono" style="color:${accent};">${fmtShort(r.clt.totalAnnualNet)}</strong> por ano</span>
+      <span><strong class="mono" style="color:#DC2626;">${taxLoad}%</strong> carga fiscal total</span>
+    </div>
+  </div>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Demonstrativo Fiscal Detalhado — ${year}</div>
+  <table style="margin-bottom:18px;">
+    <thead>
+      <tr>
+        <th style="width:55%;">Discriminação</th>
+        <th class="tr" style="color:#888;">Valor</th>
+        <th class="tr" style="color:#888;">% sobre salário bruto</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:#444;">Salário Bruto</td><td class="tr mono" style="font-weight:500;">${fmt(r.clt.grossMonthly)}</td><td class="tr mono" style="color:#888;">100%</td></tr>
+      <tr><td style="color:#444;">INSS (progressivo)</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.clt.inss)}</td><td class="tr mono" style="color:#DC2626;">${clt.grossSalary > 0 ? (-r.clt.inss / clt.grossSalary * 100).toFixed(1) : '0'}%</td></tr>
+      <tr><td style="color:#444;">IRRF s/ base de cálculo</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.clt.irrf)}</td><td class="tr mono" style="color:#DC2626;">${clt.grossSalary > 0 ? (-r.clt.irrf / clt.grossSalary * 100).toFixed(1) : '0'}%</td></tr>
+      <tr style="background:#f7f8fc;">
+        <td style="font-weight:700;font-size:11pt;text-transform:uppercase;letter-spacing:.05em;border-bottom:none;">Disponível Líquido</td>
+        <td class="tr mono" style="font-weight:900;font-size:13pt;color:${accent};border-bottom:none;">${fmt(r.clt.netMonthly)}</td>
+        <td class="tr mono" style="font-weight:900;color:${accent};border-bottom:none;">${clt.grossSalary > 0 ? (r.clt.netMonthly / clt.grossSalary * 100).toFixed(1) : '0'}%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Custo Total Para a Empresa</div>
+  <div class="g2" style="margin-bottom:24px;">
+    ${card(label('Custo Total (Empresa)', accent) + `<div class="mono" style="font-size:16pt;font-weight:900;color:${accent};">${fmt(r.clt.employerCost)}</div><div style="font-size:9pt;color:#888;margin-top:3px;">+${(clt.employerChargesRate * 100).toFixed(1)}% em encargos patronais</div>`)}
+    ${card(label('Métricas Anuais', '#888') + kv('Líquido Anual', fmtShort(r.clt.totalAnnualNet), accent) + kv('Total Impostos', fmt(-r.clt.inss - r.clt.irrf), '#DC2626') + kv('Custo Empresa/ano', fmtShort(r.clt.employerCost * 12)))}
+  </div>
+
+  <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;">
+    <span style="font-size:8pt;color:#aaa;">Estimativa com base nas tabelas ${year}. Não substitui orientação contábil profissional.</span>
+    <span style="font-size:8pt;color:#aaa;">calculadorapj.otaviorafael.com.br</span>
+  </div>
+</body>
+</html>`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
@@ -750,6 +974,406 @@ const App: React.FC = () => {
     </div>
   );
 
+  // ── PJ-only calculator ────────────────────────────────────────────────────────
+  const handlePjPrint = () => {
+    const html = buildPjOnlyPdfHtml(r, pj, year);
+    const win  = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  };
+
+  const taxLoad = pj.billingMonthly > 0
+    ? ((-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100)
+    : 0;
+
+  const pjCalculator = (
+    <div className="page-in grid grid-cols-1 lg:grid-cols-[400px_1fr]">
+
+      {/* Inputs (sticky left) */}
+      <div
+        className="lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto px-5 sm:px-7 py-8 border-b lg:border-b-0 lg:border-r"
+        style={{ borderColor: v('border') }}
+      >
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full" style={{ background: pjColor }} />
+          <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: pjColor, fontFamily: 'Roboto, sans-serif' }}>
+            PJ — Simples Nacional III
+          </span>
+        </div>
+        <div className="space-y-6">
+          <MoneyField label="Faturamento Mensal" value={pj.billingMonthly} onChange={b => setPj({ ...pj, billingMonthly: b })} />
+          <ProLaboreSlider rate={pj.proLaboreRate} onChange={rr => setPj({ ...pj, proLaboreRate: rr })} billing={pj.billingMonthly} pjColor={pjColor} />
+          <PctField
+            label="Custos Operacionais"
+            value={pj.costsRate * 100}
+            onChange={n => setPj({ ...pj, costsRate: n / 100 })}
+            hint="Contador, softwares, infraestrutura (% sobre faturamento)"
+          />
+        </div>
+        <div className="mt-8"><AdUnit slot="9217882912" consentAccepted={consent === 'accepted'} /></div>
+      </div>
+
+      {/* Results (right) */}
+      <div className="px-6 lg:px-10 py-8 space-y-5">
+
+        {/* Liquid card */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: `1px solid ${pjColor}30`, background: v('surface') }}
+        >
+          <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${pjColor}, transparent)` }} />
+          <div className="px-7 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <Tag color={pjColor} dimBg={isDark ? 'rgba(178,255,92,0.1)' : 'rgba(22,163,74,0.08)'}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: pjColor }} />
+                Líquido PJ
+              </Tag>
+              <span className="text-[11px]" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>disponível mensal</span>
+            </div>
+            <p
+              key={pjKey}
+              className="num-flash font-black leading-none"
+              style={{ fontFamily: "'Roboto Mono', monospace", fontSize: 'clamp(2.6rem, 5.5vw, 4rem)', color: pjColor, textShadow: isDark ? `0 0 80px ${pjColor}50` : 'none' }}
+            >
+              {fmt(r.pj.netMonthly)}
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-y-3 mt-3">
+              <div className="flex flex-wrap gap-x-5 gap-y-1">
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: pjColor, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {fmtShort(r.pj.totalAnnualNet)}
+                  </span>{' '}por ano
+                </span>
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: negColor, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {taxLoad.toFixed(1)}%
+                  </span>{' '}carga fiscal
+                </span>
+              </div>
+              <button
+                onClick={handlePjPrint}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold tracking-wide transition-all"
+                style={{ background: isDark ? 'rgba(178,255,92,0.1)' : 'rgba(22,163,74,0.08)', color: pjColor, border: `1px solid ${pjColor}40`, fontFamily: 'Roboto, sans-serif', letterSpacing: '0.08em' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${pjColor}22`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(178,255,92,0.1)' : 'rgba(22,163,74,0.08)'; (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
+              >
+                <FileDown className="w-3.5 h-3.5" /> Baixar PDF
+              </button>
+            </div>
+          </div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${pjColor}50, transparent)` }} />
+        </div>
+
+        {/* 3 metric cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Líquido Anual',       value: fmtShort(r.pj.totalAnnualNet),  sub: 'em 12 meses',         color: pjColor },
+            { label: 'Total de Impostos',   value: fmt(-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional), sub: 'INSS + IRRF + DAS', color: negColor },
+            { label: 'Faturamento Bruto',   value: fmt(r.pj.billingMonthly),        sub: 'custo para a empresa', color: v('t2') },
+          ].map(card => (
+            <div key={card.label} className="rounded-xl px-4 py-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <p className="field-label" style={{ marginBottom: 6 }}>{card.label}</p>
+              <p className="font-bold" style={{ color: card.color, fontFamily: "'Roboto Mono', monospace", fontSize: '1.1rem' }}>{card.value}</p>
+              <p className="text-[11px] mt-1" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
+
+        {/* Breakdown table */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: v('border') }}>
+            <span className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+              Demonstrativo Fiscal {year}
+            </span>
+            <span className="text-[10px] font-bold tracking-wider" style={{ color: pjColor, fontFamily: 'Roboto, sans-serif' }}>● PJ — Simples III</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[300px]">
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${v('border')}` }}>
+                  {['Item', 'Valor', '% faturamento'].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 text-[10px] font-bold tracking-[0.15em] uppercase ${i === 0 ? 'text-left' : 'text-right'}`}
+                      style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: 'Faturamento Bruto',              val: r.pj.billingMonthly,   neg: false },
+                  { label: 'INSS Patronal (11% pró-labore)', val: r.pj.inssPatronal,      neg: true  },
+                  { label: 'IRRF s/ pró-labore',             val: r.pj.irrf,              neg: true  },
+                  { label: 'DAS — Simples Nacional III',     val: r.pj.simplesNacional,   neg: true  },
+                  { label: 'Custos Operacionais',            val: r.pj.costs,             neg: true  },
+                ].map(row => (
+                  <tr key={row.label} style={{ borderBottomColor: v('border') }}>
+                    <td className="px-4 py-3 text-[12px] border-b" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>{row.label}</td>
+                    <td className="px-4 py-3 text-right text-[12px] border-b whitespace-nowrap" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 500, color: row.neg ? negColor : v('t1'), borderBottomColor: v('border') }}>
+                      {row.neg ? fmt(row.val) : fmt(row.val)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[11px] border-b" style={{ fontFamily: "'Roboto Mono', monospace", color: row.neg ? negColor : v('t3'), borderBottomColor: v('border') }}>
+                      {pj.billingMonthly > 0 ? `${(Math.abs(row.val) / pj.billingMonthly * 100).toFixed(1)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{ background: v('surface2') }}>
+                  <td className="px-4 py-5 text-[11px] font-bold tracking-[0.06em] uppercase border-b" style={{ color: v('t1'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>Disponível Líquido</td>
+                  <td className="px-4 py-5 text-right border-b whitespace-nowrap" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, fontSize: 15, color: pjColor, borderBottomColor: v('border') }}>{fmt(r.pj.netMonthly)}</td>
+                  <td className="px-4 py-5 text-right border-b" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, color: pjColor, borderBottomColor: v('border') }}>
+                    {pj.billingMonthly > 0 ? `${(r.pj.netMonthly / pj.billingMonthly * 100).toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="px-6 py-3 border-t text-[10px] leading-relaxed" style={{ borderColor: v('border'), color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+            INSS Patronal 11% sobre pró-labore · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III
+          </div>
+        </div>
+
+        {/* Pró-labore detail */}
+        <div className="rounded-2xl p-6" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-5" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>Pró-labore e INSS</p>
+          <div className="grid grid-cols-2 gap-6">
+            {[
+              { label: 'Pró-labore calculado', value: fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621)), sub: `${(pj.proLaboreRate * 100).toFixed(0)}% do faturamento`, color: pjColor },
+              { label: 'INSS Patronal',         value: fmt(r.pj.inssPatronal),                                   sub: '11% sobre pró-labore',                                   color: negColor },
+            ].map(item => (
+              <div key={item.label}>
+                <p className="field-label">{item.label}</p>
+                <p className="text-xl font-bold" style={{ color: item.color, fontFamily: "'Roboto Mono', monospace" }}>{item.value}</p>
+                <p className="text-[11px] mt-1" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>{item.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
+
+        {/* Trust badges */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { icon: <TrendingUp className="w-4 h-4" />, color: pjColor,   title: `Tabelas ${year}`,    desc: 'Simples Nacional III, INSS e IRRF atualizados para 2026.' },
+            { icon: <Shield     className="w-4 h-4" />, color: cltColor,  title: 'Cálculo Preciso',    desc: 'Fator R, INSS Patronal Simples (11%) e desconto simplificado aplicados.' },
+            { icon: <Lock       className="w-4 h-4" />, color: '#9B8CFF', title: 'Privacidade Total',  desc: 'Tudo local no browser. Nenhum dado enviado a servidores.' },
+          ].map((item, i) => (
+            <div key={i} className="rounded-xl p-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{ color: item.color }}>{item.icon}</span>
+                <p className="text-[11px] font-bold" style={{ color: item.color, fontFamily: 'Roboto, sans-serif' }}>{item.title}</p>
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── CLT-only calculator ───────────────────────────────────────────────────────
+  const handleCltPrint = () => {
+    const html = buildCltOnlyPdfHtml(r, clt, year);
+    const win  = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  };
+
+  const cltTaxLoad = clt.grossSalary > 0
+    ? ((clt.grossSalary - r.clt.netMonthly) / clt.grossSalary * 100)
+    : 0;
+
+  const dimBgClt = isDark ? 'rgba(92,160,255,0.1)' : 'rgba(29,96,200,0.08)';
+
+  const cltCalculator = (
+    <div className="page-in grid grid-cols-1 lg:grid-cols-[400px_1fr]">
+
+      {/* Inputs (sticky left) */}
+      <div
+        className="lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto px-5 sm:px-7 py-8 border-b lg:border-b-0 lg:border-r"
+        style={{ borderColor: v('border') }}
+      >
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full" style={{ background: cltColor }} />
+          <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: cltColor, fontFamily: 'Roboto, sans-serif' }}>
+            Regime CLT — Carteira Assinada
+          </span>
+        </div>
+        <div className="space-y-6">
+          <MoneyField label="Salário Bruto Mensal" value={clt.grossSalary} onChange={g => setClt({ ...clt, grossSalary: g })} isClt />
+          <PctField
+            label="Encargos Patronais"
+            value={clt.employerChargesRate * 100}
+            onChange={n => setClt({ ...clt, employerChargesRate: n / 100 })}
+            hint="INSS (20%) + FGTS (8%) + 13º + Férias + PIS/PASEP. Padrão: 33,8%"
+            isClt
+          />
+        </div>
+        <div className="mt-8"><AdUnit slot="9217882912" consentAccepted={consent === 'accepted'} /></div>
+      </div>
+
+      {/* Results (right) */}
+      <div className="px-6 lg:px-10 py-8 space-y-5">
+
+        {/* Main liquid card */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: `1px solid ${cltColor}30`, background: v('surface') }}
+        >
+          <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${cltColor}, transparent)` }} />
+          <div className="px-7 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <Tag color={cltColor} dimBg={dimBgClt}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: cltColor }} />
+                Líquido CLT
+              </Tag>
+              <span className="text-[11px]" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>disponível mensal</span>
+            </div>
+            <p
+              key={cltKey}
+              className="num-flash font-black leading-none"
+              style={{ fontFamily: "'Roboto Mono', monospace", fontSize: 'clamp(2.6rem, 5.5vw, 4rem)', color: cltColor, textShadow: isDark ? `0 0 80px ${cltColor}50` : 'none' }}
+            >
+              {fmt(r.clt.netMonthly)}
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-y-3 mt-3">
+              <div className="flex flex-wrap gap-x-5 gap-y-1">
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: cltColor, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {fmtShort(r.clt.totalAnnualNet)}
+                  </span>{' '}por ano
+                </span>
+                <span style={{ fontFamily: 'Roboto, sans-serif', color: v('t2'), fontSize: 13 }}>
+                  <span style={{ color: negColor, fontFamily: "'Roboto Mono', monospace", fontWeight: 700 }}>
+                    {cltTaxLoad.toFixed(1)}%
+                  </span>{' '}carga fiscal
+                </span>
+              </div>
+              <button
+                onClick={handleCltPrint}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold tracking-wide transition-all"
+                style={{ background: dimBgClt, color: cltColor, border: `1px solid ${cltColor}40`, fontFamily: 'Roboto, sans-serif', letterSpacing: '0.08em' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${cltColor}22`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = dimBgClt; (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
+              >
+                <FileDown className="w-3.5 h-3.5" /> Baixar PDF
+              </button>
+            </div>
+          </div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${cltColor}50, transparent)` }} />
+        </div>
+
+        {/* 3 metric cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Líquido Anual',     value: fmtShort(r.clt.totalAnnualNet),           sub: 'em 12 meses',         color: cltColor  },
+            { label: 'Total de Impostos', value: fmt(-r.clt.inss - r.clt.irrf),             sub: 'INSS + IRRF',         color: negColor  },
+            { label: 'Custo Empresa',     value: fmt(r.clt.employerCost),                   sub: `+${(clt.employerChargesRate * 100).toFixed(1)}% encargos`, color: v('t2') },
+          ].map(card => (
+            <div key={card.label} className="rounded-xl px-4 py-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <p className="field-label" style={{ marginBottom: 6 }}>{card.label}</p>
+              <p className="font-bold" style={{ color: card.color, fontFamily: "'Roboto Mono', monospace", fontSize: '1.1rem' }}>{card.value}</p>
+              <p className="text-[11px] mt-1" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
+
+        {/* Breakdown table */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: v('border') }}>
+            <span className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>
+              Demonstrativo Fiscal {year}
+            </span>
+            <span className="text-[10px] font-bold tracking-wider" style={{ color: cltColor, fontFamily: 'Roboto, sans-serif' }}>● CLT</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[300px]">
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${v('border')}` }}>
+                  {['Item', 'Valor', '% salário bruto'].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 text-[10px] font-bold tracking-[0.15em] uppercase ${i === 0 ? 'text-left' : 'text-right'}`}
+                      style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: 'Salário Bruto',         val: r.clt.grossMonthly, neg: false },
+                  { label: 'INSS (progressivo)',     val: r.clt.inss,         neg: true  },
+                  { label: 'IRRF s/ base de cálculo', val: r.clt.irrf,        neg: true  },
+                ].map(row => (
+                  <tr key={row.label} style={{ borderBottomColor: v('border') }}>
+                    <td className="px-4 py-3 text-[12px] border-b" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>{row.label}</td>
+                    <td className="px-4 py-3 text-right text-[12px] border-b whitespace-nowrap" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 500, color: row.neg ? negColor : v('t1'), borderBottomColor: v('border') }}>
+                      {fmt(row.val)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[11px] border-b" style={{ fontFamily: "'Roboto Mono', monospace", color: row.neg ? negColor : v('t3'), borderBottomColor: v('border') }}>
+                      {clt.grossSalary > 0 ? `${(Math.abs(row.val) / clt.grossSalary * 100).toFixed(1)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{ background: v('surface2') }}>
+                  <td className="px-4 py-5 text-[11px] font-bold tracking-[0.06em] uppercase border-b" style={{ color: v('t1'), fontFamily: 'Roboto, sans-serif', borderBottomColor: v('border') }}>Disponível Líquido</td>
+                  <td className="px-4 py-5 text-right border-b whitespace-nowrap" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, fontSize: 15, color: cltColor, borderBottomColor: v('border') }}>{fmt(r.clt.netMonthly)}</td>
+                  <td className="px-4 py-5 text-right border-b" style={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, color: cltColor, borderBottomColor: v('border') }}>
+                    {clt.grossSalary > 0 ? `${(r.clt.netMonthly / clt.grossSalary * 100).toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="px-6 py-3 border-t text-[10px] leading-relaxed" style={{ borderColor: v('border'), color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+            INSS 7,5–14% progressivo · IRRF com isenção progressiva até R$5.000 ({year}) · Desconto simplificado R$607,20
+          </div>
+        </div>
+
+        {/* Employer cost */}
+        <div className="rounded-2xl p-6" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+          <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-5" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>Custo Total Para a Empresa</p>
+          <div className="flex items-baseline gap-4 mb-2">
+            <p className="text-xl font-bold" style={{ color: cltColor, fontFamily: "'Roboto Mono', monospace" }}>
+              {fmt(r.clt.employerCost)}
+            </p>
+          </div>
+          <p className="text-[11px]" style={{ color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
+            +{(clt.employerChargesRate * 100).toFixed(1)}% encargos patronais sobre o salário bruto
+          </p>
+        </div>
+
+        <AdUnit slot="6312517973" format="auto" consentAccepted={consent === 'accepted'} />
+
+        {/* Trust badges */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { icon: <TrendingUp className="w-4 h-4" />, color: cltColor,  title: `Tabelas ${year}`,    desc: 'INSS progressivo e IRRF com isenção progressiva até R$5.000 (2026).' },
+            { icon: <Shield     className="w-4 h-4" />, color: pjColor,   title: 'Cálculo Preciso',    desc: 'Desconto simplificado R$607,20, encargos patronais e custo total aplicados.' },
+            { icon: <Lock       className="w-4 h-4" />, color: '#9B8CFF', title: 'Privacidade Total',  desc: 'Tudo local no browser. Nenhum dado enviado a servidores.' },
+          ].map((item, i) => (
+            <div key={i} className="rounded-xl p-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{ color: item.color }}>{item.icon}</span>
+                <p className="text-[11px] font-bold" style={{ color: item.color, fontFamily: 'Roboto, sans-serif' }}>{item.title}</p>
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   // ── Static pages ─────────────────────────────────────────────────────────────
   const staticPage = (title: string, content: React.ReactNode) => (
     <div className="page-in max-w-2xl mx-auto px-6 py-12">
@@ -865,6 +1489,8 @@ const App: React.FC = () => {
       {/* Main */}
       <main className="flex-grow max-w-[1440px] mx-auto w-full">
         {view === 'calculator' && calculator}
+        {view === 'pj' && pjCalculator}
+        {view === 'clt' && cltCalculator}
         {view === 'rescisao' && (
           <RescisaoCLT
             cltColor={cltColor}

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { getConsent } from "./CookieConsent";
 
 interface AdUnitProps {
@@ -15,9 +15,11 @@ const AdUnit: React.FC<AdUnitProps> = ({
   consentAccepted,
 }) => {
   const hasConsent = consentAccepted ?? getConsent() === 'accepted';
+  const pushed = useRef(false);
 
   useEffect(() => {
-    if (!hasConsent) return;
+    if (!hasConsent || pushed.current) return;
+    pushed.current = true;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch (e) {
