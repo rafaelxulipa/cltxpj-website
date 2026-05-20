@@ -11,12 +11,19 @@ interface Props {
 const v = (name: string) => `var(--${name})`;
 
 const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor }) => {
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const overlay: React.CSSProperties = {
     position: 'fixed',
     inset: 0,
     zIndex: 10000,
+    overflowY: 'auto',
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     padding: '24px 16px',
     background: isDark ? 'rgba(6,8,16,0.92)' : 'rgba(0,0,0,0.55)',
@@ -156,7 +163,7 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
 
   return (
     <div style={overlay}>
-      <div style={{ width: '100%', maxWidth: 1400 }}>
+      <div style={{ width: '100%', maxWidth: 1400, margin: 'auto' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{
