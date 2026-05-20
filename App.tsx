@@ -630,9 +630,11 @@ const App: React.FC = () => {
     (localStorage.getItem('theme') as Theme) || 'dark'
   );
   const [consent, setConsentState] = useState<ConsentStatus>(() => getConsent());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   function handleModeSelect(m: Mode) {
     setMode(m);
+    setMobileMenuOpen(false);
     if (m === 'comparativo') setView('calculator');
     else if (m === 'pj') setView('pj');
     else if (m === 'clt') setView('clt');
@@ -1472,6 +1474,66 @@ const App: React.FC = () => {
                 : <Moon className="w-4 h-4" />
               }
             </button>
+
+            {/* Hambúrguer — só mobile, só quando já escolheu um modo */}
+            {mode !== null && (
+              <div className="relative sm:hidden">
+                <button
+                  className="theme-btn"
+                  onClick={() => setMobileMenuOpen(o => !o)}
+                  aria-label="Menu de modos"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    {mobileMenuOpen
+                      ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+                      : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
+                    }
+                  </svg>
+                </button>
+
+                {mobileMenuOpen && (
+                  <>
+                    {/* overlay para fechar */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setMobileMenuOpen(false)}
+                    />
+                    <div
+                      className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+                      style={{ background: v('surface'), border: `1px solid ${v('border')}`, minWidth: 200 }}
+                    >
+                      {([
+                        { m: 'comparativo' as Mode, icon: '⇄', label: 'Comparativo' },
+                        { m: 'pj'          as Mode, icon: '◈', label: 'Calculadora PJ' },
+                        { m: 'clt'         as Mode, icon: '●', label: 'Calculadora CLT' },
+                        { m: 'rescisao'    as Mode, icon: '⊖', label: 'Rescisão CLT' },
+                      ]).map(item => {
+                        const isActive = mode === item.m;
+                        const color = item.m === 'pj' ? pjColor : cltColor;
+                        return (
+                          <button
+                            key={item.m}
+                            onClick={() => handleModeSelect(item.m)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+                            style={{
+                              background: isActive ? `${color}15` : 'transparent',
+                              borderBottom: `1px solid ${v('border')}`,
+                              color: isActive ? color : v('t2'),
+                              fontFamily: 'Roboto, sans-serif',
+                              fontSize: 13,
+                              fontWeight: isActive ? 700 : 400,
+                            }}
+                          >
+                            <span style={{ fontSize: 16, color }}>{item.icon}</span>
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
