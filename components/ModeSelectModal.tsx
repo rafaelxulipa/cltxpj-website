@@ -1,7 +1,8 @@
+
 import React from 'react';
 
 interface Props {
-  onSelect: (mode: 'comparativo' | 'pj' | 'clt') => void;
+  onSelect: (mode: 'comparativo' | 'pj' | 'clt' | 'rescisao') => void;
   isDark: boolean;
   pjColor: string;
   cltColor: string;
@@ -24,7 +25,7 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
   };
 
   const card = (
-    mode: 'comparativo' | 'pj' | 'clt',
+    mode: 'comparativo' | 'pj' | 'clt' | 'rescisao',
     accentColor: string,
     icon: React.ReactNode,
     title: string,
@@ -40,8 +41,8 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
       <button
         onClick={() => onSelect(mode)}
         style={{
-          flex: '1 1 280px',
-          maxWidth: 360,
+          flex: '1 1 260px',
+          maxWidth: 340,
           background: v('surface'),
           border: `1.5px solid ${borderColor}`,
           borderRadius: 16,
@@ -155,7 +156,7 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
 
   return (
     <div style={overlay}>
-      <div style={{ width: '100%', maxWidth: 1160 }}>
+      <div style={{ width: '100%', maxWidth: 1400 }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{
@@ -215,6 +216,14 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
             'Calculadora CLT',
             'Calcule seu salário líquido CLT, impostos, custo total para a empresa e todas as deduções.',
             ['CLT Exclusivo', 'INSS + IRRF', 'PDF'],
+          )}
+          {card(
+            'rescisao',
+            cltColor,
+            '⊖',
+            'Rescisão CLT',
+            'Calcule suas verbas rescisórias: saldo de salário, aviso prévio, 13º, férias e FGTS.',
+            ['Verbas Rescisórias', 'FGTS + Multa', 'PDF'],
           )}
         </div>
 
