@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="#0C0E14"/>
+
+  <!-- Subtle inner border -->
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.4" stroke="white" stroke-opacity="0.06" stroke-width="1.5"/>
+
+  <!-- CLT bar (shorter, blue) -->
+  <rect x="4" y="13" width="10" height="14" rx="2.5" fill="#5CA0FF"/>
+  <!-- CLT bar top cap glow -->
+  <rect x="4" y="13" width="10" height="3" rx="2.5" fill="#8FC4FF"/>
+
+  <!-- PJ bar (taller, green) -->
+  <rect x="18" y="7" width="10" height="20" rx="2.5" fill="#B2FF5C"/>
+  <!-- PJ bar top cap glow -->
+  <rect x="18" y="7" width="10" height="3" rx="2.5" fill="#D4FFB0"/>
+
+  <!-- Comparison arrow between bars -->
+  <path d="M15.5 15 L16.5 15" stroke="white" stroke-opacity="0.3" stroke-width="1" stroke-linecap="round"/>
+</svg>
