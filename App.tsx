@@ -7,9 +7,10 @@ import AdUnit from './components/AdUnit';
 import CookieConsent, { getConsent, setConsent, ConsentStatus } from './components/CookieConsent';
 import ModeSelectModal from './components/ModeSelectModal';
 import RescisaoCLT from './components/RescisaoCLT';
+import FreelancerCalculator from './components/FreelancerCalculator';
 
-type View  = 'calculator' | 'pj' | 'clt' | 'rescisao' | 'terms' | 'privacy' | 'cookies';
-type Mode  = 'comparativo' | 'pj' | 'clt' | 'rescisao';
+type View  = 'calculator' | 'pj' | 'clt' | 'rescisao' | 'freelancer' | 'terms' | 'privacy' | 'cookies';
+type Mode  = 'comparativo' | 'pj' | 'clt' | 'rescisao' | 'freelancer';
 type Theme = 'dark' | 'light';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -35,9 +36,10 @@ function useFlash(value: number) {
 function useAccents(theme: Theme) {
   const isDark = theme === 'dark';
   return {
-    pj:    isDark ? '#B2FF5C' : '#16A34A',
-    clt:   isDark ? '#5CA0FF' : '#1D60C8',
-    neg:   isDark ? '#FF5D6C' : '#DC2626',
+    pj:         isDark ? '#B2FF5C' : '#16A34A',
+    clt:        isDark ? '#5CA0FF' : '#1D60C8',
+    neg:        isDark ? '#FF5D6C' : '#DC2626',
+    freelancer: isDark ? '#FFB347' : '#D97706',
     isDark,
   };
 }
@@ -639,6 +641,7 @@ const App: React.FC = () => {
     else if (m === 'pj') setView('pj');
     else if (m === 'clt') setView('clt');
     else if (m === 'rescisao') setView('rescisao');
+    else if (m === 'freelancer') setView('freelancer');
   }
 
   useEffect(() => {
@@ -660,7 +663,7 @@ const App: React.FC = () => {
   const [pj,  setPj]  = useState<PjInputs>({ billingMonthly: 12500, proLaboreRate: 0.28, costsRate: 0.05 });
 
   const year = new Date().getFullYear();
-  const { pj: pjColor, clt: cltColor, neg: negColor, isDark } = useAccents(theme);
+  const { pj: pjColor, clt: cltColor, neg: negColor, freelancer: freelancerColor, isDark } = useAccents(theme);
 
   // Apply theme to <html>
   useEffect(() => {
@@ -1380,7 +1383,7 @@ const App: React.FC = () => {
   const staticPage = (title: string, content: React.ReactNode) => (
     <div className="page-in max-w-2xl mx-auto px-6 py-12">
       <button
-        onClick={() => setView(mode === 'pj' ? 'pj' : mode === 'clt' ? 'clt' : mode === 'rescisao' ? 'rescisao' : 'calculator')}
+        onClick={() => setView(mode === 'pj' ? 'pj' : mode === 'clt' ? 'clt' : mode === 'rescisao' ? 'rescisao' : mode === 'freelancer' ? 'freelancer' : 'calculator')}
         className="flex items-center gap-2 text-[12px] font-bold mb-10 transition-colors"
         style={{ color: v('t2'), fontFamily: 'Roboto, sans-serif' }}
       >
@@ -1434,13 +1437,14 @@ const App: React.FC = () => {
                   { m: 'pj'          as Mode, label: 'PJ',          view: 'pj'         as View },
                   { m: 'clt'         as Mode, label: 'CLT',         view: 'clt'        as View },
                   { m: 'rescisao'    as Mode, label: 'Rescisão',    view: 'rescisao'   as View },
+                  { m: 'freelancer'  as Mode, label: 'Freelancer',  view: 'freelancer' as View },
                 ] as { m: Mode; label: string; view: View }[]).map(item => (
                   <button
                     key={item.m}
                     onClick={() => handleModeSelect(item.m)}
                     className="px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wide transition-all"
                     style={{
-                      background: mode === item.m ? (item.m === 'pj' ? pjColor : cltColor) : 'transparent',
+                      background: mode === item.m ? (item.m === 'pj' ? pjColor : item.m === 'freelancer' ? freelancerColor : cltColor) : 'transparent',
                       color: mode === item.m ? (isDark ? '#0C0E14' : '#fff') : v('t2'),
                       fontFamily: 'Roboto, sans-serif',
                     }}
@@ -1507,9 +1511,10 @@ const App: React.FC = () => {
                         { m: 'pj'          as Mode, icon: '◈', label: 'Calculadora PJ' },
                         { m: 'clt'         as Mode, icon: '●', label: 'Calculadora CLT' },
                         { m: 'rescisao'    as Mode, icon: '⊖', label: 'Rescisão CLT' },
+                        { m: 'freelancer'  as Mode, icon: '◎', label: 'Calc. Freelancer' },
                       ]).map(item => {
                         const isActive = mode === item.m;
-                        const color = item.m === 'pj' ? pjColor : cltColor;
+                        const color = item.m === 'pj' ? pjColor : item.m === 'freelancer' ? freelancerColor : cltColor;
                         return (
                           <button
                             key={item.m}
@@ -1553,6 +1558,13 @@ const App: React.FC = () => {
         {view === 'calculator' && calculator}
         {view === 'pj' && pjCalculator}
         {view === 'clt' && cltCalculator}
+        {view === 'freelancer' && (
+          <FreelancerCalculator
+            freelancerColor={freelancerColor}
+            isDark={isDark}
+            consentAccepted={consent === 'accepted'}
+          />
+        )}
         {view === 'rescisao' && (
           <RescisaoCLT
             cltColor={cltColor}

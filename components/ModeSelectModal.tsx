@@ -2,7 +2,7 @@
 import React from 'react';
 
 interface Props {
-  onSelect: (mode: 'comparativo' | 'pj' | 'clt' | 'rescisao') => void;
+  onSelect: (mode: 'comparativo' | 'pj' | 'clt' | 'rescisao' | 'freelancer') => void;
   isDark: boolean;
   pjColor: string;
   cltColor: string;
@@ -11,6 +11,7 @@ interface Props {
 const v = (name: string) => `var(--${name})`;
 
 const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor }) => {
+  const freelancerColor = isDark ? '#FFB347' : '#D97706';
   React.useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -32,7 +33,7 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
   };
 
   const card = (
-    mode: 'comparativo' | 'pj' | 'clt' | 'rescisao',
+    mode: 'comparativo' | 'pj' | 'clt' | 'rescisao' | 'freelancer',
     accentColor: string,
     icon: React.ReactNode,
     title: string,
@@ -231,6 +232,14 @@ const ModeSelectModal: React.FC<Props> = ({ onSelect, isDark, pjColor, cltColor 
             'Rescisão CLT',
             'Calcule suas verbas rescisórias: saldo de salário, aviso prévio, 13º, férias e FGTS.',
             ['Verbas Rescisórias', 'FGTS + Multa', 'PDF'],
+          )}
+          {card(
+            'freelancer',
+            freelancerColor,
+            '◎',
+            'Calculadora Freelancer',
+            'Descubra quanto cobrar por hora e estime o preço justo para qualquer projeto freelancer.',
+            ['Valor/Hora', 'Valor de Projeto', 'Freelancer'],
           )}
         </div>
 
