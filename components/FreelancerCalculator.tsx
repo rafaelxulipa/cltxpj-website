@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, Shield, Lock } from 'lucide-react';
+import { TrendingUp, Shield, Lock, FileDown } from 'lucide-react';
 import AdUnit from './AdUnit';
 
 interface Props {
@@ -83,6 +83,147 @@ const NumField: React.FC<{ label: string; value: number; onChange: (v: number) =
   );
 };
 
+// ── PDF generation ────────────────────────────────────────────────────────────
+
+interface FreelancerPdfData {
+  tab: 'hourly' | 'project';
+  accent: string;
+  monthlyIncome: number;
+  hoursPerDay: number;
+  daysPerWeek: number;
+  vacationWeeks: number;
+  workingWeeks: number;
+  annualHours: number;
+  monthlyHours: number;
+  hourlyRate: number;
+  projectRate: number;
+  projectHoursPerDay: number;
+  projectDays: number;
+  totalProjectHours: number;
+  projectValue: number;
+}
+
+function buildFreelancerPdfHtml(d: FreelancerPdfData): string {
+  const today = new Date().toLocaleDateString('pt-BR');
+  const accent = d.accent;
+  const isHourly = d.tab === 'hourly';
+  const mainValue = isHourly ? d.hourlyRate : d.projectValue;
+  const mainLabel = isHourly ? 'Valor por Hora' : 'Valor do Projeto';
+  const mainSuffix = isHourly ? '/hora' : '';
+
+  const hourlyRows = [
+    ['Rendimento mensal desejado', fmt(d.monthlyIncome)],
+    ['Rendimento anual (× 12)', fmt(d.monthlyIncome * 12)],
+    ['Horas por dia', `${d.hoursPerDay}h`],
+    ['Dias de trabalho por semana', `${d.daysPerWeek} dias`],
+    [`Semanas úteis (52 − ${d.vacationWeeks})`, `${d.workingWeeks} semanas`],
+    ['Total horas faturáveis/ano', `${d.annualHours}h`],
+  ];
+
+  const projectRows = [
+    ['Valor da hora', `${fmt(d.projectRate)}/h`],
+    ['Horas por dia no projeto', `${d.projectHoursPerDay}h/dia`],
+    ['Duração do projeto', `${d.projectDays} dias`],
+    ['Total de horas trabalhadas', `${d.totalProjectHours}h`],
+  ];
+
+  const rows = (isHourly ? hourlyRows : projectRows).map(([label, value]) => `
+    <tr>
+      <td>${label}</td>
+      <td class="tr mono" style="font-weight:600;">${value}</td>
+    </tr>
+  `).join('');
+
+  const statsHtml = isHourly ? `
+    <div class="g3" style="margin-bottom:18px;">
+      <div class="card"><div class="lbl">Horas faturáveis/ano</div><div class="mono big-num" style="color:${accent};">${d.annualHours}h</div><div class="sub">${d.hoursPerDay}h × ${d.daysPerWeek}d × ${d.workingWeeks}sem</div></div>
+      <div class="card"><div class="lbl">Horas faturáveis/mês</div><div class="mono big-num" style="color:${accent};">${d.monthlyHours}h</div><div class="sub">média mensal</div></div>
+      <div class="card"><div class="lbl">Rendimento anual</div><div class="mono big-num">${fmt(d.monthlyIncome * 12)}</div><div class="sub">objetivo total</div></div>
+    </div>
+  ` : `
+    <div class="g3" style="margin-bottom:18px;">
+      <div class="card"><div class="lbl">Total de horas</div><div class="mono big-num" style="color:${accent};">${d.totalProjectHours}h</div><div class="sub">${d.projectHoursPerDay}h/dia × ${d.projectDays}d</div></div>
+      <div class="card"><div class="lbl">Valor/hora aplicado</div><div class="mono big-num" style="color:${accent};">${fmt(d.projectRate)}</div><div class="sub">por hora trabalhada</div></div>
+      <div class="card"><div class="lbl">Duração do projeto</div><div class="mono big-num">${d.projectDays} dias</div><div class="sub">≈ ${Math.ceil(d.projectDays / 7)} semanas</div></div>
+    </div>
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Freelancer — ${mainLabel} — ${today}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Roboto', sans-serif; color: #111; background: #fff; font-size: 10pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .mono { font-family: 'Roboto Mono', monospace; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 8pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; border-bottom: 1.5px solid #e0e0ec; padding: 6px 8px; color: #888; }
+    td { padding: 6px 8px; font-size: 9.5pt; border-bottom: 1px solid #f0f0f8; }
+    .tr { text-align: right; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .card { border: 1px solid #e0e0ec; border-radius: 8px; padding: 12px 14px; }
+    .lbl { font-size: 8pt; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+    .big-num { font-size: 16pt; font-weight: 900; }
+    .sub { font-size: 8pt; color: #888; margin-top: 3px; }
+    .section-label { font-size: 8pt; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #aaa; margin-bottom: 9px; }
+  </style>
+</head>
+<body>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;border-bottom:2px solid #111;padding-bottom:12px;">
+    <div>
+      <div style="font-size:22pt;font-weight:900;letter-spacing:-.02em;">
+        Calculadora <span style="color:${accent};">Freelancer</span>
+      </div>
+      <div style="font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-top:3px;">
+        ${isHourly ? 'Precificação por Hora' : 'Precificação de Projeto'}
+      </div>
+    </div>
+    <div style="text-align:right;font-size:9pt;color:#888;line-height:1.7;">
+      <div>Gerado em ${today}</div>
+    </div>
+  </div>
+
+  <div style="border:1.5px solid ${accent};border-radius:10px;padding:16px 20px;margin-bottom:18px;background:#f0f9ff;">
+    <div style="font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${accent};margin-bottom:6px;">● ${mainLabel}</div>
+    <div class="mono" style="font-size:34pt;font-weight:900;color:${accent};line-height:1;margin-bottom:4px;">${fmt(mainValue)}${mainSuffix ? `<span style="font-size:18pt;font-weight:500;color:#555;"> ${mainSuffix}</span>` : ''}</div>
+    ${isHourly ? `<div style="font-size:10pt;color:#555;">Rendimento desejado: <strong class="mono">${fmt(d.monthlyIncome)}/mês</strong> · <strong class="mono">${d.annualHours}h</strong> faturáveis/ano</div>` : `<div style="font-size:10pt;color:#555;">Taxa: <strong class="mono">${fmt(d.projectRate)}/h</strong> · <strong class="mono">${d.totalProjectHours}h</strong> no projeto</div>`}
+  </div>
+
+  <div class="section-label">Detalhes</div>
+  ${statsHtml}
+
+  <div class="section-label">Memória de Cálculo</div>
+  <table style="margin-bottom:20px;">
+    <thead>
+      <tr>
+        <th style="width:65%;">Parâmetro</th>
+        <th class="tr" style="width:35%;">Valor</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      <tr style="background:#f7f8fc;">
+        <td style="font-weight:700;font-size:11pt;border-bottom:none;">${isHourly ? 'Anual ÷ Horas/ano' : 'Horas × Valor/hora'}</td>
+        <td class="tr mono" style="font-weight:900;font-size:13pt;color:${accent};border-bottom:none;">${fmt(mainValue)}${isHourly ? '/h' : ''}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;margin-top:8px;">
+    <span style="font-size:8pt;color:#aaa;">Estimativa gerada pela calculadora. Não inclui impostos, benefícios ou custos operacionais do freelancer.</span>
+    <span style="font-size:8pt;color:#aaa;">calculadorapj.otaviorafael.com.br</span>
+  </div>
+
+</body>
+</html>`;
+}
+
 const FreelancerCalculator: React.FC<Props> = ({ freelancerColor, isDark, consentAccepted }) => {
   const [tab, setTab] = useState<'hourly' | 'project'>('hourly');
 
@@ -105,6 +246,32 @@ const FreelancerCalculator: React.FC<Props> = ({ freelancerColor, isDark, consen
 
   const dimBg              = isDark ? `${freelancerColor}14` : `${freelancerColor}10`;
   const calcHourlyRounded  = Math.round(hourlyRate * 100) / 100;
+
+  const handlePrint = () => {
+    const html = buildFreelancerPdfHtml({
+      tab,
+      accent: freelancerColor,
+      monthlyIncome,
+      hoursPerDay,
+      daysPerWeek,
+      vacationWeeks,
+      workingWeeks,
+      annualHours,
+      monthlyHours,
+      hourlyRate,
+      projectRate,
+      projectHoursPerDay,
+      projectDays,
+      totalProjectHours,
+      projectValue,
+    });
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  };
 
   const handleTabChange = (newTab: 'hourly' | 'project') => {
     if (newTab === 'project' && projectRate === 0 && hourlyRate > 0) {
@@ -245,6 +412,31 @@ const FreelancerCalculator: React.FC<Props> = ({ freelancerColor, isDark, consen
 
         {/* Results */}
         <div className="px-6 lg:px-10 py-8 space-y-5">
+          <div className="flex justify-end">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold tracking-wide transition-all"
+              style={{
+                background: dimBg,
+                color: freelancerColor,
+                border: `1px solid ${freelancerColor}40`,
+                fontFamily: 'Roboto, sans-serif',
+                letterSpacing: '0.08em',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = `${freelancerColor}22`;
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = dimBg;
+                (e.currentTarget as HTMLButtonElement).style.transform = 'none';
+              }}
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              Baixar PDF
+            </button>
+          </div>
+
           {tab === 'hourly' ? (
             <>
               {resultCard('Valor por Hora', 'cobrar por hora', hourlyRate, '/hora')}
