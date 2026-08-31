@@ -284,32 +284,33 @@ export function calcularRescisao(inputs: RescisaoInputs): RescisaoResult {
     diasSaldoSalario,
   );
 
-  // Base INSS: saldo salário + 13º + aviso prévio trabalhado (não indenizado)
+  // Aviso prévio trabalhado (não indenizado) entra na mesma competência do saldo de salário
   const apTrabalhado = (modoAvisoPrevio === 'trabalhado' || modoAvisoPrevio === 'dispensado') && regras.avisoPrevioFator > 0;
   const valorApParaINSS = apTrabalhado ? apCalc.valor * regras.avisoPrevioFator : 0;
-  const baseINSS = saldoSalarioValor + decimoTerceiro.valor + valorApParaINSS;
-  const inssTotal = calcularINSS(Math.max(0, baseINSS));
 
-  // Base IRRF: saldo salário + 13º + aviso prévio (indenizado ou trabalhado) - INSS
-  // Férias: ISENTAS de IRRF
-  const apParaIRRF = apBruto !== 0 ? Math.abs(apBruto) : valorApParaINSS;
-  const baseIRRFBruta = saldoSalarioValor + decimoTerceiro.valor + apParaIRRF;
-  const baseIRRF = Math.max(0, baseIRRFBruta + inssTotal); // inssTotal é negativo
-  const irrfTotal = calcularIRRF(baseIRRF, dependentes);
+  // Aviso prévio indenizado tem natureza indenizatória: ISENTO de INSS e de IRRF (art. 6º, V, Lei 7.713/88)
 
-  // Distribuição proporcional de INSS/IRRF pelas verbas tributáveis
-  const tributavelTotal = baseIRRFBruta > 0 ? baseIRRFBruta : 1;
+  // Grupo "salário do mês" (saldo de salário + aviso prévio trabalhado): tributado em conjunto, como remuneração normal
+  const baseGrupoSalario = saldoSalarioValor + valorApParaINSS;
+  const inssGrupoSalario = calcularINSS(Math.max(0, baseGrupoSalario));
+  const baseIRRFGrupoSalario = Math.max(0, baseGrupoSalario + inssGrupoSalario); // inssGrupoSalario é negativo
+  const irrfGrupoSalario = calcularIRRF(baseIRRFGrupoSalario, dependentes);
 
-  const propSaldo = baseIRRFBruta > 0 ? saldoSalarioValor / tributavelTotal : 0;
-  const propDecimo = baseIRRFBruta > 0 ? decimoTerceiro.valor / tributavelTotal : 0;
-  const propAP = baseIRRFBruta > 0 ? apParaIRRF / tributavelTotal : 0;
+  // 13º salário: tributação exclusiva na fonte, calculada em separado (própria aplicação da tabela progressiva)
+  const inss13 = decimoTerceiro.valor > 0 ? calcularINSS(decimoTerceiro.valor) : 0;
+  const baseIRRF13 = Math.max(0, decimoTerceiro.valor + inss13); // inss13 é negativo
+  const irrf13 = decimoTerceiro.valor > 0 ? calcularIRRF(baseIRRF13, dependentes) : 0;
+
+  // Distribuição proporcional de INSS/IRRF do grupo "salário do mês" entre saldo e aviso prévio trabalhado
+  const propSaldo = baseGrupoSalario > 0 ? saldoSalarioValor / baseGrupoSalario : 0;
+  const propAP = baseGrupoSalario > 0 ? valorApParaINSS / baseGrupoSalario : 0;
 
   // Montar verbas
   const verbas: VerbaItem[] = [];
 
   // 1. Saldo de salário
-  const inssOnSaldo = inssTotal * propSaldo;
-  const irrfOnSaldo = irrfTotal * propSaldo;
+  const inssOnSaldo = inssGrupoSalario * propSaldo;
+  const irrfOnSaldo = irrfGrupoSalario * propSaldo;
   verbas.push({
     id: 'saldo_salario',
     descricao: 'Saldo de Salário',
@@ -322,27 +323,27 @@ export function calcularRescisao(inputs: RescisaoInputs): RescisaoResult {
     valorLiquido: saldoSalarioValor + inssOnSaldo + irrfOnSaldo,
   });
 
-  // 2. Aviso prévio
+  // 2. Aviso prévio — indenizado tem natureza indenizatória: ISENTO de INSS e IRRF.
+  // Só incide tributo quando trabalhado/dispensado (integra a remuneração normal do mês).
   if (apBruto !== 0 || (regras.avisoPrevioFator > 0 && modoAvisoPrevio === 'trabalhado')) {
-    const apInss = modoAvisoPrevio === 'indenizado' && !apDesconto ? 0 : inssTotal * propAP;
-    const apIrrf = irrfTotal * propAP;
+    const apTaxavel = !apDesconto && modoAvisoPrevio !== 'indenizado';
+    const apInss = apTaxavel ? inssGrupoSalario * propAP : 0;
+    const apIrrf = apTaxavel ? irrfGrupoSalario * propAP : 0;
     verbas.push({
       id: 'aviso_previo',
       descricao: apDesconto ? 'Aviso Prévio (desconto)' : 'Aviso Prévio Indenizado',
       baseCalculo: `${apDias} dias`,
       valorBruto: apBruto,
-      inssIncide: !apDesconto && modoAvisoPrevio !== 'indenizado',
-      irrfIncide: apBruto !== 0,
-      inss: apDesconto ? 0 : apInss,
-      irrf: apDesconto ? 0 : apIrrf,
-      valorLiquido: apBruto + (apDesconto ? 0 : apInss + apIrrf),
+      inssIncide: apTaxavel,
+      irrfIncide: apTaxavel,
+      inss: apInss,
+      irrf: apIrrf,
+      valorLiquido: apBruto + apInss + apIrrf,
     });
   }
 
-  // 3. 13º Salário
+  // 3. 13º Salário — tributação exclusiva na fonte, calculada em separado do salário do mês
   if (decimoTerceiro.valor > 0) {
-    const inssOnDecimo = inssTotal * propDecimo;
-    const irrfOnDecimo = irrfTotal * propDecimo;
     verbas.push({
       id: 'decimo_terceiro',
       descricao: '13º Salário Proporcional',
@@ -350,9 +351,9 @@ export function calcularRescisao(inputs: RescisaoInputs): RescisaoResult {
       valorBruto: decimoTerceiro.valor,
       inssIncide: true,
       irrfIncide: true,
-      inss: inssOnDecimo,
-      irrf: irrfOnDecimo,
-      valorLiquido: decimoTerceiro.valor + inssOnDecimo + irrfOnDecimo,
+      inss: inss13,
+      irrf: irrf13,
+      valorLiquido: decimoTerceiro.valor + inss13 + irrf13,
     });
   }
 
