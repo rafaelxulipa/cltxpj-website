@@ -6,8 +6,8 @@ const SALARIO_MINIMO = 1621.00;
 const DESCONTO_SIMPLIFICADO = 607.20;
 const FGTS_RATE = 0.08;
 const FATOR_R = 0.28;
-const INSS_PATRONAL_RATE = 0.11; // Simples Nacional
-const INSS_PATRONAL_TETO = 932.31;
+const INSS_PROLABORE_RATE = 0.11; // contribuinte individual (sócio) — CPP patronal já está embutida no DAS do Anexo III
+const INSS_PROLABORE_TETO = 932.31;
 
 /**
  * 2026 Progressive INSS Brackets (simplified formula: salary * rate - deduction)
@@ -102,11 +102,11 @@ export const calculateFullComparison = (clt: CltInputs, pj: PjInputs): Calculati
   // Pró-labore: MAX(billing * fatorR, salárioMínimo)
   const proLabore = Math.max(pj.billingMonthly * pj.proLaboreRate, SALARIO_MINIMO);
 
-  // INSS Patronal (Simples Nacional: 11%, paid by empresa)
-  const inssPatronal = -Math.min(proLabore * INSS_PATRONAL_RATE, INSS_PATRONAL_TETO);
+  // INSS sobre pró-labore (contribuinte individual, 11%, retido do sócio — não é a CPP patronal, que já está embutida no DAS)
+  const inssProLabore = -Math.min(proLabore * INSS_PROLABORE_RATE, INSS_PROLABORE_TETO);
 
-  // IRRF on pró-labore: base = MIN(proLabore - INSS_patronal_abs, proLabore - descontoSimplificado)
-  const pjIrBase = Math.max(0, proLabore - Math.max(-inssPatronal, DESCONTO_SIMPLIFICADO));
+  // IRRF on pró-labore: base = MIN(proLabore - INSS_abs, proLabore - descontoSimplificado)
+  const pjIrBase = Math.max(0, proLabore - Math.max(-inssProLabore, DESCONTO_SIMPLIFICADO));
   const pjIrrf = calculateIRRF(pjIrBase);
 
   // Simples Nacional DAS
@@ -116,7 +116,7 @@ export const calculateFullComparison = (clt: CltInputs, pj: PjInputs): Calculati
   const pjCosts = -(pj.billingMonthly * pj.costsRate);
 
   // Total taxes and costs PJ
-  const pjTotalTaxesAndCosts = inssPatronal + pjIrrf + simplesNacional + pjCosts;
+  const pjTotalTaxesAndCosts = inssProLabore + pjIrrf + simplesNacional + pjCosts;
 
   // Net PJ
   const pjNetMonthly = pj.billingMonthly + pjTotalTaxesAndCosts;
@@ -134,7 +134,7 @@ export const calculateFullComparison = (clt: CltInputs, pj: PjInputs): Calculati
     pj: {
       billingMonthly: pj.billingMonthly,
       proLabore: proLabore,
-      inssPatronal: inssPatronal,
+      inssProLabore: inssProLabore,
       irrf: pjIrrf,
       simplesNacional: simplesNacional,
       costs: pjCosts,

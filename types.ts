@@ -23,7 +23,7 @@ export interface CalculationResult {
   pj: {
     billingMonthly: number;
     proLabore: number;
-    inssPatronal: number;    // negative (empresa paga)
+    inssProLabore: number;   // negative (11% do sócio como contribuinte individual, retido do pró-labore)
     irrf: number;            // negative
     simplesNacional: number; // negative
     costs: number;           // negative

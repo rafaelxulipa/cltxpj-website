@@ -276,7 +276,7 @@ function buildPdfHtml(
 
   const rows = [
     { desc: 'Salário Bruto / Faturamento', cVal: fmt(r.clt.grossMonthly),  pVal: fmt(r.pj.billingMonthly),  neg: false },
-    { desc: 'INSS',                         cVal: fmt(r.clt.inss),           pVal: fmt(r.pj.inssPatronal),    neg: true  },
+    { desc: 'INSS',                         cVal: fmt(r.clt.inss),           pVal: fmt(r.pj.inssProLabore),    neg: true  },
     { desc: 'IRRF',                         cVal: fmt(r.clt.irrf),           pVal: fmt(r.pj.irrf),            neg: true  },
     { desc: 'DAS — Simples Nacional III',   cVal: '—',                       pVal: fmt(r.pj.simplesNacional), neg: true  },
     { desc: 'Custos Operacionais',          cVal: '—',                       pVal: fmt(r.pj.costs),           neg: true  },
@@ -409,7 +409,7 @@ function buildPjOnlyPdfHtml(
   const proLabore = fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621));
   const today     = new Date().toLocaleDateString('pt-BR');
   const taxLoad   = pj.billingMonthly > 0
-    ? ((-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100).toFixed(1)
+    ? ((-r.pj.inssProLabore - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100).toFixed(1)
     : '0.0';
 
   const card = (content: string) =>
@@ -486,7 +486,7 @@ function buildPjOnlyPdfHtml(
     </thead>
     <tbody>
       <tr><td style="color:#444;">Faturamento Bruto</td><td class="tr mono" style="font-weight:500;">${fmt(r.pj.billingMonthly)}</td><td class="tr mono" style="color:#888;">100%</td></tr>
-      <tr><td style="color:#444;">INSS Patronal (Simples — 11% s/ pró-labore)</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.inssPatronal)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.inssPatronal / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
+      <tr><td style="color:#444;">INSS s/ Pró-labore (contribuinte individual — 11%)</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.inssProLabore)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.inssProLabore / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
       <tr><td style="color:#444;">IRRF s/ pró-labore</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.irrf)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.irrf / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
       <tr><td style="color:#444;">DAS — Simples Nacional III</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.simplesNacional)}</td><td class="tr mono" style="color:#DC2626;">${pj.billingMonthly > 0 ? (-r.pj.simplesNacional / pj.billingMonthly * 100).toFixed(1) : '0'}%</td></tr>
       <tr><td style="color:#444;">Custos Operacionais</td><td class="tr mono" style="color:#DC2626;font-weight:500;">${fmt(r.pj.costs)}</td><td class="tr mono" style="color:#DC2626;">${(pj.costsRate * 100).toFixed(1)}%</td></tr>
@@ -501,7 +501,7 @@ function buildPjOnlyPdfHtml(
   <div style="font-size:8pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">Pró-labore e INSS</div>
   <div class="g2" style="margin-bottom:24px;">
     ${card(label('Pró-labore Calculado', accent) + kv('Fator R aplicado', `${(pj.proLaboreRate * 100).toFixed(0)}%`) + kv('Valor pró-labore', proLabore, accent) + kv('Mínimo absoluto', fmt(1621)))}
-    ${card(label('INSS Patronal', '#888') + kv('Base de cálculo', proLabore) + kv('Alíquota Simples', '11%') + kv('INSS descontado', fmt(r.pj.inssPatronal), '#DC2626'))}
+    ${card(label('INSS s/ Pró-labore', '#888') + kv('Base de cálculo', proLabore) + kv('Alíquota (contrib. individual)', '11%') + kv('INSS descontado', fmt(r.pj.inssProLabore), '#DC2626'))}
   </div>
 
   <div style="border-top:1px solid #e0e0ec;padding-top:8px;display:flex;justify-content:space-between;">
@@ -900,7 +900,7 @@ const App: React.FC = () => {
               </thead>
               <tbody>
                 <TRow label="Bruto / Faturamento" clt={fmt(r.clt.grossMonthly)} pj={fmt(r.pj.billingMonthly)} cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
-                <TRow label="INSS" clt={fmt(r.clt.inss)} pj={fmt(r.pj.inssPatronal)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
+                <TRow label="INSS" clt={fmt(r.clt.inss)} pj={fmt(r.pj.inssProLabore)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
                 <TRow label="IRRF" clt={fmt(r.clt.irrf)} pj={fmt(r.pj.irrf)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
                 <TRow label="DAS — Simples Nacional III" clt={null} pj={fmt(r.pj.simplesNacional)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
                 <TRow label="Custos Operacionais" clt={null} pj={fmt(r.pj.costs)} negative cltColor={cltColor} pjColor={pjColor} negColor={negColor} />
@@ -910,7 +910,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="px-6 py-3 border-t text-[10px] leading-relaxed" style={{ borderColor: v('border'), color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
-            INSS 7,5–14% progressivo · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III · INSS Patronal Simples 11%
+            INSS 7,5–14% progressivo · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III · INSS Pró-labore 11%
           </div>
         </div>
 
@@ -963,7 +963,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { icon: <TrendingUp className="w-4 h-4" />, color: pjColor,  title: `Tabelas ${year}`,   desc: 'INSS, IRRF e Simples Nacional atualizados. Isenção progressiva 2026.' },
-            { icon: <Shield     className="w-4 h-4" />, color: cltColor, title: 'Cálculo Preciso',   desc: 'INSS Patronal Simples (11%), Fator R e desconto simplificado aplicados.' },
+            { icon: <Shield     className="w-4 h-4" />, color: cltColor, title: 'Cálculo Preciso',   desc: 'INSS Pró-labore (11%), Fator R e desconto simplificado aplicados.' },
             { icon: <Lock       className="w-4 h-4" />, color: '#9B8CFF', title: 'Privacidade Total', desc: 'Tudo local no browser. Nenhum dado enviado a servidores.' },
           ].map((item, i) => (
             <div key={i} className="rounded-xl p-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
@@ -991,7 +991,7 @@ const App: React.FC = () => {
   };
 
   const taxLoad = pj.billingMonthly > 0
-    ? ((-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100)
+    ? ((-r.pj.inssProLabore - r.pj.irrf - r.pj.simplesNacional - r.pj.costs) / pj.billingMonthly * 100)
     : 0;
 
   const pjCalculator = (
@@ -1076,7 +1076,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: 'Líquido Anual',       value: fmtShort(r.pj.totalAnnualNet),  sub: 'em 12 meses',         color: pjColor },
-            { label: 'Total de Impostos',   value: fmt(-r.pj.inssPatronal - r.pj.irrf - r.pj.simplesNacional), sub: 'INSS + IRRF + DAS', color: negColor },
+            { label: 'Total de Impostos',   value: fmt(-r.pj.inssProLabore - r.pj.irrf - r.pj.simplesNacional), sub: 'INSS + IRRF + DAS', color: negColor },
             { label: 'Faturamento Bruto',   value: fmt(r.pj.billingMonthly),        sub: 'custo para a empresa', color: v('t2') },
           ].map(card => (
             <div key={card.label} className="rounded-xl px-4 py-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
@@ -1112,7 +1112,7 @@ const App: React.FC = () => {
               <tbody>
                 {[
                   { label: 'Faturamento Bruto',              val: r.pj.billingMonthly,   neg: false },
-                  { label: 'INSS Patronal (11% pró-labore)', val: r.pj.inssPatronal,      neg: true  },
+                  { label: 'INSS Pró-labore (11%)',          val: r.pj.inssProLabore,      neg: true  },
                   { label: 'IRRF s/ pró-labore',             val: r.pj.irrf,              neg: true  },
                   { label: 'DAS — Simples Nacional III',     val: r.pj.simplesNacional,   neg: true  },
                   { label: 'Custos Operacionais',            val: r.pj.costs,             neg: true  },
@@ -1138,7 +1138,7 @@ const App: React.FC = () => {
             </table>
           </div>
           <div className="px-6 py-3 border-t text-[10px] leading-relaxed" style={{ borderColor: v('border'), color: v('t3'), fontFamily: 'Roboto, sans-serif' }}>
-            INSS Patronal 11% sobre pró-labore · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III
+            INSS Pró-labore 11% (contribuinte individual) · IRRF com isenção progressiva até R$5.000 ({year}) · Simples Nacional Anexo III
           </div>
         </div>
 
@@ -1148,7 +1148,7 @@ const App: React.FC = () => {
           <div className="grid grid-cols-2 gap-6">
             {[
               { label: 'Pró-labore calculado', value: fmt(Math.max(pj.billingMonthly * pj.proLaboreRate, 1621)), sub: `${(pj.proLaboreRate * 100).toFixed(0)}% do faturamento`, color: pjColor },
-              { label: 'INSS Patronal',         value: fmt(r.pj.inssPatronal),                                   sub: '11% sobre pró-labore',                                   color: negColor },
+              { label: 'INSS Pró-labore',        value: fmt(r.pj.inssProLabore),                                   sub: '11% sobre pró-labore',                                   color: negColor },
             ].map(item => (
               <div key={item.label}>
                 <p className="field-label">{item.label}</p>
@@ -1165,7 +1165,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { icon: <TrendingUp className="w-4 h-4" />, color: pjColor,   title: `Tabelas ${year}`,    desc: 'Simples Nacional III, INSS e IRRF atualizados para 2026.' },
-            { icon: <Shield     className="w-4 h-4" />, color: cltColor,  title: 'Cálculo Preciso',    desc: 'Fator R, INSS Patronal Simples (11%) e desconto simplificado aplicados.' },
+            { icon: <Shield     className="w-4 h-4" />, color: cltColor,  title: 'Cálculo Preciso',    desc: 'Fator R, INSS Pró-labore (11%) e desconto simplificado aplicados.' },
             { icon: <Lock       className="w-4 h-4" />, color: '#9B8CFF', title: 'Privacidade Total',  desc: 'Tudo local no browser. Nenhum dado enviado a servidores.' },
           ].map((item, i) => (
             <div key={i} className="rounded-xl p-4" style={{ background: v('surface'), border: `1px solid ${v('border')}` }}>
